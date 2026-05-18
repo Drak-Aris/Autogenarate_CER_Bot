@@ -1,6 +1,6 @@
 import os
-
-model_path = "foundation_modele"
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 def charger_modele_et_tokenizer(model_path: str):
     if not os.path.exists(model_path):
@@ -9,19 +9,30 @@ def charger_modele_et_tokenizer(model_path: str):
     print("Chargement du tokenizer et du modèle Qwen2.5-7B-Instruct...")
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 
-    # Choix du périphérique
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Périphérique utilisé : {device}")
+    if torch.cuda.is_available():
+        # ----- MODE GPU -----
+        device = "cuda"
+        print(f"Périphérique utilisé : {device}")
+        torch_dtype = torch.float16
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype,
+            device_map="auto",       # répartit automatiquement sur les GPU disponibles
+            trust_remote_code=True
+        )
+    else:
+        # ----- MODE CPU (fallback) -----
+        device = "cpu"
+        print(f"Périphérique utilisé : {device} (GPU non détecté)")
+        torch_dtype = torch.float32  # obligatoire sur CPU
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype,
+            device_map={"": device},    # tout est mis sur le CPU
+            low_cpu_mem_usage=True,     # réduit le pic mémoire au chargement
+            trust_remote_code=True
+        )
 
-    # Chargement optimisé : float16 sur GPU, float32 sur CPU (très lent !)
-    torch_dtype = torch.float16 if device == "cuda" else torch.float32
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        torch_dtype=torch_dtype,
-        device_map="auto" if device == "cuda" else None,
-        trust_remote_code=True
-    )
-    if device == "cpu":
-        model = model.to(device)
     model.eval()
+    print("Modèle chargé avec succès.")
     return tokenizer, model, device

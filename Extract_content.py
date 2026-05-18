@@ -2,8 +2,10 @@ import os
 from pathlib import Path
 from docx import Document
 import pdfplumber
-from Model_loading import charger_modele_et_tokenizer, model_path
+from Model_loading import charger_modele_et_tokenizer
 import json
+
+model_path = "Qwen2.5-7B-Instruct"#referencer le modele
 
 chemin_aller_prosit = "Files_test/PROSIT ALLER N°01.docx"
 max_tokens = 2048
