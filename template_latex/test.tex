@@ -1,0 +1,57 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}      % Pour les accents
+\usepackage[T1]{fontenc}         % Encodage des polices
+\usepackage{lmodern}             % Police lisible
+\usepackage[french]{babel}       % Règles typographiques françaises
+\usepackage{amsmath, amssymb}    % Maths
+\usepackage{graphicx}            % Pour inclure des images (optionnel)
+\usepackage{hyperref}            % Liens cliquables dans le PDF
+
+\title{Document de test}
+\author{Votre Nom}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Ceci est un document de test pour vérifier la compilation \LaTeX{} via
+l'image Docker \texttt{aergus/latex}.
+
+\subsection{Mathématiques}
+
+Une équation inline : \( E = mc^2 \).
+
+Une équation display :
+\[
+\int_{0}^{\infty} e^{-x^2} \, dx = \frac{\sqrt{\pi}}{2}
+\]
+
+\section{Liste}
+
+Voici une liste simple :
+\begin{itemize}
+    \item Premier élément
+    \item Deuxième élément
+    \item Troisième élément
+\end{itemize}
+
+\section{Tableau}
+
+Un tableau simple :
+\begin{center}
+\begin{tabular}{|c|c|}
+    \hline
+    Colonne 1 & Colonne 2 \\
+    \hline
+    A & B \\
+    C & D \\
+    \hline
+\end{tabular}
+\end{center}
+
+Le document se compile sans erreur et produit un PDF d'une page.
+
+\end{document}
