@@ -8,7 +8,7 @@ from llama_cpp import Llama
 script_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(script_dir,"foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
 
-chemin_aller_prosit = "files_test/PROSIT ALLER N°01.docx" #fichiers test model
+chemin_aller_prosit = "files_test/Prosit aller 1 algorithmique.docx" #fichiers test model
 
 max_tokens = 2048
 temperature = 0.1

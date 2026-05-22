@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 #todo nettoyer et corriger
 
-TEX_FILE = "/home/drak-aris/PycharmProjects/Autogenarate_CER_Bot/template_latex/test.tex"
+TEX_FILE = "/home/drak-aris/PycharmProjects/Autogenarate_CER_Bot/template_latex/document.tex"
 OUTPUT_DIR = "/home/drak-aris/PycharmProjects/Autogenarate_CER_Bot/sortie"
 
 def compiler_latex(fichier_tex: str, dossier_sortie: str):
