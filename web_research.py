@@ -4,7 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from llama_cpp import Llama
-
+#TODO revoir serieusement le rtour sur au niveau des etudes approfondis mais si non les definition correct
 # Chargement des variables d'environnement depuis .env
 load_dotenv()
 
