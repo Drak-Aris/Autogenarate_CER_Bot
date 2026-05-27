@@ -4,7 +4,7 @@ from pathlib import Path
 #todo nettoyer et corriger
 
 TEX_FILE = "/home/drak-aris/PycharmProjects/Autogenarate_CER_Bot/template_latex/document.tex"
-OUTPUT_DIR = "/home/drak-aris/PycharmProjects/Autogenarate_CER_Bot/sortie"
+OUTPUT_DIR = "/CER_finished"
 
 def compiler_latex(fichier_tex: str, dossier_sortie: str):
     fichier_tex = Path(fichier_tex).resolve()
@@ -17,7 +17,7 @@ def compiler_latex(fichier_tex: str, dossier_sortie: str):
     dossier_travail = fichier_tex.parent
     nom_fichier = fichier_tex.name
 
-    # Création du dossier de sortie si nécessaire
+    # Création du dossier de CER_finished si nécessaire
     dossier_sortie = Path(dossier_sortie).resolve()
     dossier_sortie.mkdir(parents=True, exist_ok=True)
 
@@ -34,14 +34,14 @@ def compiler_latex(fichier_tex: str, dossier_sortie: str):
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
-        # Affiche la sortie pour diagnostiquer les erreurs LaTeX
+        # Affiche la CER_finished pour diagnostiquer les erreurs LaTeX
         print("--- Sortie de pdflatex ---")
         print(result.stdout)
         print("--- Erreurs ---")
         print(result.stderr)
         raise RuntimeError("Échec de la compilation LaTeX. Voir les messages ci-dessus.")
 
-    # Le PDF est produit dans le dossier de travail, on le déplace vers la sortie
+    # Le PDF est produit dans le dossier de travail, on le déplace vers la CER_finished
     pdf_nom = fichier_tex.stem + ".pdf"
     pdf_source = dossier_travail / pdf_nom
     pdf_dest = dossier_sortie / pdf_nom

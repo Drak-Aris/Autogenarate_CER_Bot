@@ -25,7 +25,7 @@ prompt_initial = (
 
 def extract_latex(text: str) -> str:
     """
-    Nettoie la sortie du modèle pour ne garder que le code LaTeX.
+    Nettoie la CER_finished du modèle pour ne garder que le code LaTeX.
     Supprime les éventuels délimiteurs ```latex ... ``` et le texte hors code.
     """
     # Supprime les blocs de code Markdown : ```latex ... ```
@@ -34,7 +34,7 @@ def extract_latex(text: str) -> str:
     if match:
         text = match.group(1).strip()
 
-    # Si la sortie contient \documentclass, garde à partir de là
+    # Si la CER_finished contient \documentclass, garde à partir de là
     start = text.find(r"\documentclass")
     if start != -1:
         text = text[start:]
