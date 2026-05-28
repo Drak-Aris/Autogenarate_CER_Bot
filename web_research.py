@@ -4,27 +4,43 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from llama_cpp import Llama
-#TODO revoir serieusement le rtour sur au niveau des etudes approfondis mais si non les definition correct
-# Chargement des variables d'environnement depuis .env
 load_dotenv()
+
+#TODO revoir serieusement le rtour sur au niveau des etudes approfondis mais si non les definition correct
 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 if not SERPER_API_KEY:
-    raise ValueError("La clé SERPER_API_KEY est requise. Ajoutez-la dans un fichier .env : SERPER_API_KEY=votre_clé")
+    raise ValueError("La clé SERPER_API_KEY est requise.") #TODO vue que c'est un cle API que je gere trouver un moyen d'afficher lorsque j'ai bloquer le service dans serper
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
+model_path = os.path.join(os.path.dirname(__file__), "foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
+
+#TODO revoir toutes ses valeurs
 MAX_RESEARCH_RESULTS = 3
 MAX_SYNTHESE_TOKENS = 512
 TEMPERATURE = 0.1
 
+def check_serper_api(api_key: str) -> bool:
+    """Vérifie que la clé API Serper est valide et non bloquée.
+    Renvoie True si la connexion est OK, False si bloquée/invalide."""
+    try:
+        test_search = GoogleSerperAPIWrapper(serper_api_key=api_key, k=1)
+        # Appel minimal pour déclencher une éventuelle erreur d'authentification
+        test_search.run("test")
+        return True
+    except Exception as e:
+        # On peut logger l'erreur précise si besoin (e.g. 403, quota dépassé, etc.)
+        print(f"🔴 Échec du test de connexion à Serper : {e}")
+        return False
+
+if not check_serper_api(SERPER_API_KEY):
+    raise RuntimeError(
+        "La clé API Serper est bloquée, invalide ou le quota est épuisé. "
+        "L'application va s'arrêter. Contactez l'administrateur du compte Serper."
+    )
+
 search = GoogleSerperAPIWrapper(serper_api_key=SERPER_API_KEY, k=MAX_RESEARCH_RESULTS)
 
-
-# ------------------------------
-# 3. Fonction générique d'appel au LLM local
-# ------------------------------
 def llm_synthese(prompt: str, llm: Llama) -> str:
-    """Envoie un prompt au modèle local et retourne la réponse nettoyée."""
     messages = [{"role": "user", "content": prompt}]
     response = llm.create_chat_completion(
         messages=messages,

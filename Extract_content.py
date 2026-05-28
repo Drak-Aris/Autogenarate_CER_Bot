@@ -8,7 +8,7 @@ from llama_cpp import Llama
 script_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(script_dir,"foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
 
-chemin_aller_prosit = "files_test/Prosit aller 1 algorithmique.docx" #fichiers test model
+chemin_aller_prosit = "files_test/Prosit aller 1 algorithmique.docx" #TODO fichiers test model a retirer pour faire intervenir l'interface web
 
 max_tokens = 2048
 temperature = 0.1
@@ -26,8 +26,7 @@ def extraire_texte_pdf(chemin_fichier: str) -> str:
                 texte_complet.append(texte_page)
     return "\n".join(texte_complet)
 
-#TODO faire une etude du modele et des tokens et voir une amelioration possible sans influencer les performances pc
-def extraire_sections_avec_llama(texte_brut: str, llm: Llama) -> dict: #TODO etude approfondie de cette partie
+def extraire_sections_avec_llama(texte_brut: str, llm: Llama) -> dict:
     prompt = f"""Tu es un assistant spécialisé dans l'analyse de documents structurés.
     Le texte ci-dessous est découpé en sections introduites par des titres (ex: "Mots clés", "Contexte", "Besoins", "Contraintes", Problématique, "Généralisation", etc.).
     Pour chaque titre, le contenu de la section est tout le texte qui suit le titre jusqu'au prochain titre ou jusqu'à la fin du document.
@@ -52,7 +51,7 @@ def extraire_sections_avec_llama(texte_brut: str, llm: Llama) -> dict: #TODO etu
     """
     messages = [{"role": "user", "content": prompt}]
 
-    print("\n--- Début de la génération (streaming) ---")
+    print("\nDébut de l'extraction des informations du prosit aller...")
     response = llm.create_chat_completion(
         messages=messages,
         max_tokens=max_tokens,
@@ -66,7 +65,7 @@ def extraire_sections_avec_llama(texte_brut: str, llm: Llama) -> dict: #TODO etu
         if content:
             print(content, end='', flush=True)
             full_text += content
-    print("\n--- Fin de la génération ---")
+    print("\nFin de l'extraction des informations du prosit aller...")
 
     reponse = full_text.strip()
 
@@ -83,27 +82,19 @@ def extraire_sections_avec_llama(texte_brut: str, llm: Llama) -> dict: #TODO etu
         return {}
 
 def main():
-    if not os.path.exists(chemin_aller_prosit):
-        print(f"Erreur : le fichier '{chemin_aller_prosit}' n'existe pas.")
-        return
-
     extension = Path(chemin_aller_prosit).suffix.lower()
     if extension == ".docx":
         texte = extraire_texte_docx(chemin_aller_prosit)
     elif extension == ".pdf":
         texte = extraire_texte_pdf(chemin_aller_prosit)
     else:
-        print(f"Type non supporté : '{extension}'. Utilisez .docx ou .pdf.")
+        print(f"Type non supporté : '{extension}'. Utilisez un .docx ou .pdf.")
         return
-
-    print("=== TEXTE BRUT EXTRAIT ===\n")
-    print(texte)
 
     if not os.path.exists(model_path):
-        print(f"\nErreur : le modèle GGUF '{model_path}' est introuvable. Téléchargez-le d'abord.")
+        print(f"\nErreur : le modèle GGUF '{model_path}' n'est pas present.")
         return
 
-    # Chargement du modèle (rapide, ~2 Go RAM)
     try:
         llm = Llama(
             model_path=model_path,
@@ -111,22 +102,9 @@ def main():
             n_threads=4,
             verbose=False
         )
-        print("Modèle GGUF chargé avec succès.")
+        print("Modèle LLM chargé avec succès.")
     except Exception as e:
         print(f"Erreur lors du chargement du modèle : {e}")
         return
-
-    print("\n=== EXTRACTION DES SECTIONS PAR LE MODÈLE LOCAL ===")
+    
     sections = extraire_sections_avec_llama(texte, llm)
-
-    if sections:
-        print("\n=== SECTIONS EXTRAITES ===\n")
-        for cle, valeur in sections.items():
-            print(f"--- {cle} ---")
-            print(valeur if valeur else "(vide)")
-            print()
-    else:
-        print("Aucune section n'a pu être extraite.")
-
-if __name__ == "__main__":
-    main()
