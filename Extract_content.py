@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from docx import Document
 import pdfplumber
+from langchain_classic.chains import llm
 from llama_cpp import Llama
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -81,6 +82,7 @@ def extraire_sections_avec_llama(texte_brut: str, llm: Llama) -> dict:
         print("Réponse brute :", reponse)
         return {}
 
+#TODO Implementer le main dans la research web
 def main():
     extension = Path(chemin_aller_prosit).suffix.lower()
     if extension == ".docx":
