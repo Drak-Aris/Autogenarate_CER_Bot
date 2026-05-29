@@ -5,69 +5,67 @@ from dotenv import load_dotenv
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from llama_cpp import Llama
 load_dotenv()
+import requests
+
+
+def check_serper_remote_access() -> bool:
+    try:
+        resp = requests.get(os.getenv("serper_flag_url"), timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        access = data.get("access", False)  # valeur par défaut sécurisée
+        # Normalisation : si c'est une chaîne, on convertit
+        if isinstance(access, str):
+            return access.lower() == "true"
+        return bool(access)
+    except Exception as e:
+        print(f"⚠️ Probleme lors de la connexion serper {e}")
+        print("Par mesure de sécurité, l'accès à Serper est bloqué.")
+        return False
+
+
+if not check_serper_remote_access():
+    raise RuntimeError(
+        "🔒 L'accès à Serper est actuellement désactivé par l'administrateur. "
+        "Pour le réactiver, contacter et supplier l'administrateur. "
+    )
+
 
 #TODO revoir serieusement le rtour sur au niveau des etudes approfondis mais si non les definition correct
 
-SERPER_API_KEY = os.getenv("SERPER_API_KEY")
-if not SERPER_API_KEY:
-    raise ValueError("La clé SERPER_API_KEY est requise.") #TODO vue que c'est un cle API que je gere trouver un moyen d'afficher lorsque j'ai bloquer le service dans serper
+
+serper_api = os.getenv("serper_api_key")
+if not serper_api:
+    raise ValueError("La clé API de serper rencontre un probleme.")
 
 model_path = os.path.join(os.path.dirname(__file__), "foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
 
-#TODO revoir toutes ses valeurs
-MAX_RESEARCH_RESULTS = 3
-MAX_SYNTHESE_TOKENS = 512
-TEMPERATURE = 0.1
+max_result = 7
+max_token_web = 2500
+creativite = 0.1
 
-def check_serper_api(api_key: str) -> bool:
-    """Vérifie que la clé API Serper est valide et non bloquée.
-    Renvoie True si la connexion est OK, False si bloquée/invalide."""
-    try:
-        test_search = GoogleSerperAPIWrapper(serper_api_key=api_key, k=1)
-        # Appel minimal pour déclencher une éventuelle erreur d'authentification
-        test_search.run("test")
-        return True
-    except Exception as e:
-        # On peut logger l'erreur précise si besoin (e.g. 403, quota dépassé, etc.)
-        print(f"🔴 Échec du test de connexion à Serper : {e}")
-        return False
+search = GoogleSerperAPIWrapper(serper_api_key=serper_api, k=max_result)
 
-if not check_serper_api(SERPER_API_KEY):
-    raise RuntimeError(
-        "La clé API Serper est bloquée, invalide ou le quota est épuisé. "
-        "L'application va s'arrêter. Contactez l'administrateur du compte Serper."
-    )
-
-search = GoogleSerperAPIWrapper(serper_api_key=SERPER_API_KEY, k=MAX_RESEARCH_RESULTS)
 
 def llm_synthese(prompt: str, llm: Llama) -> str:
     messages = [{"role": "user", "content": prompt}]
     response = llm.create_chat_completion(
         messages=messages,
-        max_tokens=MAX_SYNTHESE_TOKENS,
-        temperature=TEMPERATURE,
+        max_tokens=max_token_web,
+        temperature=creativite,
         stream=False
     )
     return response['choices'][0]['message']['content'].strip()
 
 
-# ------------------------------
-# 4. Module : Définitions des mots clés
-# ------------------------------
-def rechercher_definitions(mots_cles: list, llm: Llama) -> dict:
-    """
-    Pour chaque mot clé, lance une recherche Google et synthétise une définition.
-    Retourne un dict {mot_clé: définition}
-    """
+def rechercher_definitions(mots_cles: list, llm: Llama, generalisation) -> dict:
     definitions = {}
     for mot in mots_cles:
         print(f"🔍 Recherche définition pour : {mot}")
-        # Étape 1 : recherche
-        raw_results = search.run(f"définition {mot} algorithmique informatique")
+        raw_results = search.run(f"définition {mot}: ")
 
-        # Étape 2 : synthèse par le LLM
         prompt_synthese = f"""
-À partir des résultats de recherche suivants, donne une définition claire et concise du terme "{mot}" dans le contexte de l'algorithmique.
+À partir des résultats de recherche suivants, donne une définition claire et concise du terme "{mot}" dans le contexte suivant: {generalisation}.
 Ne garde que la définition, sans commentaire.
 
 Résultats de recherche :
@@ -77,28 +75,22 @@ Résultats de recherche :
         definitions[mot] = definition
     return definitions
 
-
-# ------------------------------
-# 5. Module : Évaluation des pistes de solution
-# ------------------------------
-def rechercher_pistes_solutions(pistes: list, llm: Llama) -> list:
-    """
-    Pour chaque piste, cherche des informations sur sa faisabilité.
-    Retourne une liste de dicts [{'piste': ..., 'plausible': bool, 'explication': ...}]
-    """
+#TODO Verifier cette partie
+def rechercher_pistes_solutions(pistes: list, llm: Llama, generalisation: str) -> list:
     evaluations = []
     for piste in pistes:
-        print(f"🔍 Évaluation de la piste : {piste}")
-        raw_results = search.run(f"{piste} faisabilité algorithmique avantages inconvénients")
+        print(f"🔍 Évaluation de la piste de solution : {piste}")
+        raw_results = search.run(f"{piste}")
 
         prompt_eval = f"""
-Tu es un expert en algorithmique. Analyse la piste de solution suivante : "{piste}".
-En te basant sur les résultats de recherche ci-dessous, détermine si cette piste est plausible (oui/non) et explique pourquoi en 2-3 phrases.
+Tu es un expert dans ce contexte {generalisation}. Analyse la piste de solution suivante : "{piste}".
+En te basant sur les résultats de recherche ci-dessous, détermine si cette piste est plausible (oui/non) et explique pourquoi en 2-4 phrases.
 Réponds UNIQUEMENT avec un JSON valide : {{"plausible": true/false, "explication": "..."}}
 
 Résultats de recherche :
 {raw_results}
 """
+        #TODO Verifier ceci pour le json
         reponse = llm_synthese(prompt_eval, llm)
         # Nettoyage éventuel de blocs de code JSON
         if reponse.startswith("```json"):
@@ -121,32 +113,41 @@ Résultats de recherche :
     return evaluations
 
 
-# ------------------------------
-# 6. Module : Approfondissement du plan d'action
-# ------------------------------
-def rechercher_plan_action(plan: list, llm: Llama) -> dict:
-    """
-    Pour chaque point du plan, effectue une recherche approfondie et synthétise le contenu.
-    Retourne un dict {point: contenu_structuré}
-    """
+# CORRECTION : ajout du paramètre generalisation + correction de l'appel à llm_synthese
+def rechercher_plan_action(plan: list, llm: Llama, generalisation: str) -> dict:
     plan_detail = {}
+
     for point in plan:
         print(f"🔍 Approfondissement du point : {point}")
-        # Recherche avec une requête plus large
-        raw_results = search.run(f"{point} algorithmique explications exemples")
+        queries = [
+            f"{point} {generalisation} explications",
+            f"{point} exemple concret",
+            f"{point} avantages inconvénients"
+        ]
+        all_raw = ""
+        for q in queries:
+            try:
+                raw = search.run(q)
+                all_raw += f"\n--- Résultats pour '{q}' ---\n{raw}"
+            except Exception as e:
+                print(f"Erreur recherche {q}: {e}")
 
+        # Prompt exigeant et structuré, intégrant la généralisation
         prompt_synthese = f"""
-Tu es un assistant pédagogique. Rédige une section détaillée sur le sujet "{point}" en t'appuyant UNIQUEMENT sur les résultats de recherche ci-dessous.
-Structure la réponse avec :
-- Une définition/description
-- Si pertinent, des sous‑points (ex. méthodes, cas d'usage)
-- Des exemples simples
-- Si possible, un petit tableau récapitulatif (format markdown accepté)
-Sois complet mais concis.
+Tu es un expert dans ce domaine : {generalisation}. À partir des informations suivantes, rédige une section très détaillée sur le sujet "{point}".
+Utilise TOUS les résultats pour enrichir ta réponse.
+Structure obligatoire :
+- Définition précise
+- Concepts clés (liste)
+- Exemples avec pseudo-code ou calculs
+- Tableau comparatif si possible (format markdown)
+- Points d'attention ou erreurs fréquentes
+Longueur : environ 500 mots.
 
 Résultats de recherche :
-{raw_results}
+{all_raw}
 """
+        # CORRECTION : appel avec max_tokens personnalisé (on peut utiliser une valeur plus grande si nécessaire)
         contenu = llm_synthese(prompt_synthese, llm)
         plan_detail[point] = contenu
     return plan_detail
@@ -156,30 +157,27 @@ Résultats de recherche :
 # 7. Pipeline principal
 # ------------------------------
 def run_research_pipeline(sections: dict, llm: Llama) -> dict:
-    """
-    sections : dict issu de l'extraction précédente, contenant les clés :
-        'mot cles', 'pistes de solution', 'plan action'
-    Retourne un dictionnaire global avec les trois parties enrichies.
-    """
     # Nettoyage des listes
     mots_cles = [m.strip() for m in sections.get('mot cles', '').split('\n') if m.strip()]
     pistes = [p.strip() for p in sections.get('pistes de solution', '').split('\n') if p.strip()]
     plan = [p.strip() for p in sections.get('plan action', '').split('\n') if p.strip()]
+    # AJOUT : extraction de la généralisation
+    generalisation = sections.get('generalisation', '')
 
     resultats = {}
 
     if mots_cles:
-        resultats['definitions'] = rechercher_definitions(mots_cles, llm)
+        resultats['definitions'] = rechercher_definitions(mots_cles, llm, generalisation)
     else:
         resultats['definitions'] = {}
 
     if pistes:
-        resultats['pistes_evaluees'] = rechercher_pistes_solutions(pistes, llm)
+        resultats['pistes_evaluees'] = rechercher_pistes_solutions(pistes, llm, generalisation)
     else:
         resultats['pistes_evaluees'] = []
 
     if plan:
-        resultats['plan_detail'] = rechercher_plan_action(plan, llm)
+        resultats['plan_detail'] = rechercher_plan_action(plan, llm, generalisation)
     else:
         resultats['plan_detail'] = {}
 
@@ -190,18 +188,17 @@ def run_research_pipeline(sections: dict, llm: Llama) -> dict:
 # 8. Exemple d'intégration dans votre script existant
 # ------------------------------
 if __name__ == "__main__":
-    # --- Reprise du code d'extraction (simulé ici) ---
-    # Supposons que vous ayez déjà le dictionnaire 'sections' obtenu via extraire_sections_avec_llama()
     sections_exemple = {
         "mot cles": "complexité temporelle\ncomplexité spatiale\nnotation asymptotique",
         "pistes de solution": "utiliser des algorithmes de tri avancés\nparalléliser les calculs",
-        "plan action": "Étudier la complexité temporelle\nÉtudier la complexité spatiale\nÉtudier les notations asymptotiques"
+        "plan action": "Étudier la complexité temporelle\nÉtudier la complexité spatiale\nÉtudier les notations asymptotiques",
+        "generalisation": "algorithmique et évaluation des performances"
     }
 
     # Chargement du modèle
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Modèle introuvable : {MODEL_PATH}")
-    llm = Llama(model_path=MODEL_PATH, n_ctx=4096, n_threads=4, verbose=False)
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Modèle introuvable : {model_path}")
+    llm = Llama(model_path=model_path, n_ctx=4096, n_threads=4, verbose=False)
 
     # Lancement du pipeline de recherche
     print("🚀 Lancement du pipeline de recherche...")
