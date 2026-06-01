@@ -1,94 +1,76 @@
-import sys
 import os
+import json
 import re
-from llama_cpp import Llama
+from pathlib import Path
 
 # --- CONFIGURATION ---
-MODEL_PATH = "/home/drak-aris/PycharmProjects/Autogenarate_CER_Bot/foundation_model_latex/qwen2.5-coder-3b-instruct-q4_k_m.gguf"
-OUTPUT_FILE = "template_latex/document.tex"
-TEMPERATURE = 0.2
-MAX_TOKENS = 2048
+chemin_template = "template_latex/Themes/Theme_classique/retour_aller"
+json_contenue = "json/resultat_extract.json"
 
-# --- PROMPT D'INITIALISATION ---
-prompt_initial = (
-    "Génère un document LaTeX complet qui présente les principaux paradigmes de l'algorithmique. "
-    "Le document doit contenir :\n"
-    "- Une page de titre avec le titre 'Paradigmes de l'Algorithmique'\n"
-    "- Une introduction\n"
-    "- Une section détaillée sur la programmation dynamique\n"
-    "- Une section sur le paradigme diviser pour régner\n"
-    "- Une conclusion\n"
-    "Utilise les packages classiques (amsmath, graphicx, hyperref). "
-    "Ne produis que le code LaTeX, sans aucun commentaire avant ou après. "
-    "Commence directement par \\documentclass."
-)
 
-def extract_latex(text: str) -> str:
-    """
-    Nettoie la CER_finished du modèle pour ne garder que le code LaTeX.
-    Supprime les éventuels délimiteurs ```latex ... ``` et le texte hors code.
-    """
-    # Supprime les blocs de code Markdown : ```latex ... ```
-    pattern = r"```latex\s*(.*?)\s*```"
-    match = re.search(pattern, text, re.DOTALL)
+def charger_json(chemin_json: str) -> dict:
+    with open(chemin_json, 'r', encoding='utf-8') as f:
+        texte = f.read()
+    texte_nettoye = texte.replace('\\n', ' ')
+    data = json.loads(texte_nettoye)
+    return data
+
+
+def remplacer_texte_section(contenu: str, cle: str, nouveau_texte: str) -> str:
+    pattern = re.compile(
+        r'(\\section\{[^}]*' + re.escape(cle) + r'[^}]*\}\s*)'
+        r'(.*?)'
+        r'(?=\\section|$)',
+        re.DOTALL | re.IGNORECASE
+    )
+    match = pattern.search(contenu)
     if match:
-        text = match.group(1).strip()
+        avant = match.group(1)          # la ligne \section{...}
+        # On remplace uniquement la partie texte, on garde la commande et on ajoute le nouveau texte
+        remplacement = avant + "\n" + nouveau_texte.strip() + "\n"
+        contenu = contenu[:match.start()] + remplacement + contenu[match.end():]
+        return contenu
+    else:
+        # Aucune section trouvée : on lève une exception ou on retourne le contenu inchangé
+        raise ValueError(f"Aucune \\section contenant '{cle}' trouvée dans le contenu.")
 
-    # Si la CER_finished contient \documentclass, garde à partir de là
-    start = text.find(r"\documentclass")
-    if start != -1:
-        text = text[start:]
 
-    # Supprime tout ce qui suit \end{document}
-    end = text.find(r"\end{document}")
-    if end != -1:
-        text = text[:end] + r"\end{document}"
+def traiter_fichier(chemin_fichier: str, cle: str, nouveau_texte: str):
+    """Modifie le fichier LaTeX en remplaçant le texte sous la section correspondant à la clé."""
+    chemin = Path(chemin_fichier)
+    with open(chemin, 'r', encoding='utf-8') as f:
+        contenu = f.read()
 
-    return text.strip()
+    try:
+        contenu_modifie = remplacer_texte_section(contenu, cle, nouveau_texte)
+        with open(chemin, 'w', encoding='utf-8') as f:
+            f.write(contenu_modifie)
+        print(f"✅ Clé '{cle}' : texte remplacé dans {chemin.name}")
+    except ValueError as e:
+        print(f"⚠️  {e} → Texte ajouté à la fin du fichier.")
+        # Fallback : ajout à la fin
+        with open(chemin, 'a', encoding='utf-8') as f:
+            f.write("\n" + nouveau_texte.strip() + "\n")
+
 
 def main():
-    if not os.path.isfile(MODEL_PATH):
-        raise FileNotFoundError(f"Fichier modèle introuvable : {MODEL_PATH}")
+    if not os.path.isfile(FICHIER_JSON):
+        raise FileNotFoundError(f"Fichier JSON introuvable : {FICHIER_JSON}")
 
-    print("Chargement du modèle...")
-    llm = Llama(
-        model_path=MODEL_PATH,
-        n_ctx=4096,
-        n_threads=4,
-        verbose=False
-    )
-    print("Modèle chargé. Génération en cours...\n")
+    donnees = charger_json(FICHIER_JSON)
+    print(f"Clés trouvées dans le JSON : {list(donnees.keys())}")
 
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant that writes LaTeX code."},
-        {"role": "user", "content": prompt_initial}
-    ]
-    prompt_str = ""
-    for msg in messages:
-        prompt_str += f"<|im_start|>{msg['role']}\n{msg['content']}<|im_end|>\n"
-    prompt_str += "<|im_start|>assistant\n"
+    dossier = Path(DOSSIER_TEMPLATES)
+    for cle, texte in donnees.items():
+        nom_fichier = f"{cle}.tex"
+        chemin_fichier = dossier / nom_fichier
+        if not chemin_fichier.is_file():
+            print(f"⚠️  Fichier introuvable pour la clé '{cle}' : {chemin_fichier}")
+            continue
+        traiter_fichier(str(chemin_fichier), cle, texte)
 
-    output = llm.create_completion(
-        prompt=prompt_str,
-        max_tokens=MAX_TOKENS,
-        temperature=TEMPERATURE,
-        stop=["<|im_end|>", "<|im_start|>"],
-        echo=False
-    )
+    print(f"\n✅ Tous les fichiers du dossier '{DOSSIER_TEMPLATES}' ont été mis à jour.")
 
-    raw_text = output['choices'][0]['text']
-    latex_code = extract_latex(raw_text)
-
-    if not latex_code:
-        raise ValueError("Impossible d'extraire du code LaTeX valide de la réponse du modèle.")
-
-    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
-        f.write(latex_code)
-
-    print(f"✅ Fichier LaTeX nettoyé et sauvegardé : {OUTPUT_FILE}")
-    print("--- Aperçu des premières lignes ---")
-    print('\n'.join(latex_code.split('\n')[:15]))
 
 if __name__ == "__main__":
     main()

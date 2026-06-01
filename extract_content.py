@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 from docx import Document
 import pdfplumber
-from langchain_classic.chains import llm
 from llama_cpp import Llama
+import os
 
 #TODO Tester avec l'upload web de fichier si l'analyse passe
 
@@ -82,8 +82,13 @@ def extraire_sections_avec_llama(chemin_aller_prosit:str, llm: Llama, max_tokens
         reponse = reponse[:-3]
 
     try:
-        return json.loads(reponse.strip())
+        sections = json.loads(reponse.strip())
     except json.JSONDecodeError:
         print("Erreur : la réponse du modèle n'est pas un JSON valide.")
         print("Réponse brute :", reponse)
         return {}
+
+    chemin_sortie = Path(os.path.dirname(__file__),"json/resultat_extract").with_suffix(".json")
+    with open(chemin_sortie, "w", encoding="utf-8") as f:
+        json.dump(sections, f, ensure_ascii=False, indent=2)
+    return sections
