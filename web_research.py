@@ -5,15 +5,12 @@ from langchain_community.utilities import GoogleSerperAPIWrapper
 from llama_cpp import Llama
 load_dotenv()
 import requests
-from extract_content import extraire_sections_avec_llama
-
-chemin_aller_prosit = "files_test/PROSIT ALLER N°01.docx" #TODO fichiers test model a retirer pour faire intervenir l'interface web
-
 
 def extraire_sections_utiles(data: dict) -> dict:
     cles_requises = ["mot cles", "pistes de solution", "plan action", "generalisation"]
     return {cle: data[cle] for cle in cles_requises if cle in data}
 
+#TODO verifier les fonctions et leurs retours
 def check_serper_remote_access() -> bool:
     try:
         resp = requests.get(os.getenv("serper_flag_url"), timeout=5)
@@ -38,17 +35,11 @@ if not check_serper_remote_access():
 
 
 #TODO revoir serieusement le rtour sur au niveau des etudes approfondis mais si non les definition correct
-
-
 serper_api = os.getenv("serper_api_key")
 if not serper_api:
     raise ValueError("La clé API de serper rencontre un probleme.")
 
-model_path = os.path.join(os.path.dirname(__file__), "foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
-
 max_result = 7
-max_token = 2500
-creativite = 0.1
 
 search = GoogleSerperAPIWrapper(serper_api_key=serper_api, k=max_result)
 
@@ -57,8 +48,8 @@ def llm_synthese(prompt: str, llm: Llama) -> str:
     messages = [{"role": "user", "content": prompt}]
     response = llm.create_chat_completion(
         messages=messages,
-        max_tokens=max_token,
-        temperature=creativite,
+        max_tokens=2500,
+        temperature=0.1,
         stream=False
     )
     return response['choices'][0]['message']['content'].strip()
@@ -189,39 +180,3 @@ def run_research_pipeline(sections: dict, llm: Llama) -> dict:
         resultats['plan_detail'] = {}
 
     return resultats
-
-try:
-    llm = Llama(
-        model_path=model_path,
-        n_ctx=4096,
-        n_threads=4,
-        verbose=False
-    )
-    print("Modèle IA chargé avec succès.")
-except Exception as e:
-    print(f"Erreur lors du chargement du modèle : {e}")
-
-
-
-
-# ------------------------------
-# 8. Exemple d'intégration dans votre script existant
-# ------------------------------
-if __name__ == "__main__":
-    contenue_extrait = extraire_sections_avec_llama(chemin_aller_prosit, llm,max_token, creativite)
-
-    if contenue_extrait is None:
-        raise ValueError("L'extraction a échoué : mainExtraction() a retourné None.")
-
-    sections = extraire_sections_utiles(contenue_extrait)
-
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Modèle introuvable : {model_path}")
-
-    print("...")
-    print("Lancement du pipeline de recherche...")
-    resultats_recherche = run_research_pipeline(sections, llm)
-
-    with open("recherche_resultats.json", "w", encoding="utf-8") as f: #TODO faire retirer
-        json.dump(resultats_recherche, f, ensure_ascii=False, indent=2)
-    print("✅ Fin du pipeline de recherche...")
