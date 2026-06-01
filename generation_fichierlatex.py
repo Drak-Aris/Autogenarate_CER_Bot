@@ -2,7 +2,7 @@ import os
 import json
 from pathlib import Path
 
-#TODO changer completement le template latex pour mettre rien appart le texte dans les fichiers annexes
+#TODO Revoir et corriger le code
 
 # --- CONFIGURATION ---
 chemin_template = "template_latex/Themes/Theme_classique/retour_aller"
