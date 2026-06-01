@@ -2,13 +2,14 @@ import json
 import os
 import random
 from llama_cpp import Llama
+#TODO reviser et revoir tout le code
 
 # -------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------
 MODEL_PATH = os.path.join(os.path.dirname(__file__),
                           "foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
-RESULTS_FILE = "/home/drak-aris/PycharmProjects/Autogenarate_CER_Bot/recherche_resultats.json"
+RESULTS_FILE = "/json/recherche_resultats.json"
 OUTPUT_FILE = "document_final.md"
 
 CONTEXT_SIZE = 4096

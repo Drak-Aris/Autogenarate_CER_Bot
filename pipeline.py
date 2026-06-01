@@ -3,6 +3,7 @@ import json
 from llama_cpp import Llama
 from extract_content import extraire_sections_avec_llama
 from web_research import extraire_sections_utiles, run_research_pipeline
+from pathlib import Path
 
 chemin_aller_prosit = "files_test/PROSIT ALLER N°01.docx" #TODO fichiers test model a retirer pour faire intervenir l'interface web
 
@@ -28,15 +29,3 @@ if __name__ == "__main__":
     if contenue_extrait is None:
         raise ValueError("L'extraction a échoué : mainExtraction() a retourné None.")
 
-    sections = extraire_sections_utiles(contenue_extrait)
-
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Modèle introuvable : {model_path}")
-
-    print("...")
-    print("Lancement du pipeline de recherche...")
-    resultats_recherche = run_research_pipeline(sections, llm)
-
-    with open("recherche_resultats.json", "w", encoding="utf-8") as f: #TODO faire retirer
-        json.dump(resultats_recherche, f, ensure_ascii=False, indent=2)
-    print("✅ Fin du pipeline de recherche...")
