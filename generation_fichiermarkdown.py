@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 #TODO Revoir et corriger le code
+#TODO modulariser max le latex
 
 # --- CONFIGURATION ---
 chemin_template = "template_latex/Themes/Theme_classique/retour_aller"
