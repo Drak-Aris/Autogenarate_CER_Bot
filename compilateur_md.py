@@ -2,7 +2,7 @@ import pypandoc
 from pathlib import Path
 
 # Configuration des chemins
-MD_FILE = "template/theme classique.md"
+MD_FILE = "template/theme moderne.md"
 OUTPUT_DOCX = "cer_finished/cer_document.docx"
 
 
