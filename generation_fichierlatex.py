@@ -5,6 +5,8 @@ import requests
 from pathlib import Path
 from llama_cpp import Llama
 
+json_informations = "json/informations.json"
+
 # --- CONFIGURATION ---
 chemin_template = "template/Theme_classique/retour_aller"
 json_contenu = "json/resultat_extract.json"
