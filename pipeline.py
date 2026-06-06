@@ -1,11 +1,10 @@
 import os
-import json
 from llama_cpp import Llama
 from extract_content import extraire_sections_avec_llama
 from web_research import extraire_sections_utiles, run_research_pipeline
 from plan_action import generer_document_final
 
-chemin_aller_prosit = "files_test/PROSIT ALLER 04.docx" #TODO fichiers test model a retirer pour faire intervenir l'interface web, l'uploade de fichier
+chemin_aller_prosit = "files_test/PROSIT ALLER 3.docx" #TODO fichiers test model a retirer pour faire intervenir l'interface web, l'uploade de fichier
 
 model_path = os.path.join(os.path.dirname(__file__), "foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
 
@@ -15,7 +14,7 @@ creativite = 0.1
 try:
     llm = Llama(
         model_path=model_path,
-        n_ctx=4096,
+        n_ctx=8192,
         n_threads=4,
         verbose=False
     )
@@ -42,10 +41,10 @@ if __name__ == "__main__":
     plan_detail = resultats_recherche.get('plan_detail', {})
 
     if plan_detail:
-        print("📝 Début de la génération du document final...")
+        print("Début de la génération du plan d'action...")
         document_md = generer_document_final(plan_detail, sections, llm)
         with open("etude.md", "w", encoding="utf-8") as f:
             f.write(document_md)
-        print("📄 Document final enregistré sous 'etude.md'")
+        print("📝 Plan d'action generer")
     else:
         print("❌ Aucun plan détaillé trouvé, impossible de générer le document.")

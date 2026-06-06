@@ -2,8 +2,9 @@ import subprocess
 import shutil
 from pathlib import Path
 #todo nettoyer et corriger
+#TODO Corriger le faite que a la generation la table de matiere ne ressort pas.
 
-TEX_FILE = "template/main.tex"
+TEX_FILE = "template/Theme_classique/main.tex"
 OUTPUT_DIR = "cer_finished"
 
 def compiler_latex(fichier_tex: str, dossier_sortie: str):
@@ -13,17 +14,15 @@ def compiler_latex(fichier_tex: str, dossier_sortie: str):
     if fichier_tex.suffix != ".tex":
         raise ValueError("L'extension du fichier doit être .tex")
 
-    # Dossier de travail = dossier contenant le .tex
     dossier_travail = fichier_tex.parent
     nom_fichier = fichier_tex.name
 
-    # Création du dossier de CER_finished si nécessaire
     dossier_sortie = Path(dossier_sortie).resolve()
     dossier_sortie.mkdir(parents=True, exist_ok=True)
 
-    # Commande Docker : monter le dossier de travail et lancer pdflatex
     cmd = [
         "docker", "run", "--rm",
+        "-e", "LANG=C.UTF-8",            # sortie UTF-8
         "-v", f"{dossier_travail}:/workdir",
         "-w", "/workdir",
         "aergus/latex",
@@ -31,15 +30,20 @@ def compiler_latex(fichier_tex: str, dossier_sortie: str):
     ]
 
     print(f"Compilation de {nom_fichier} avec l'image aergus/latex...")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding='utf-8',
+        errors='replace'                # sécurité anti-octet bizarre
+    )
 
     if result.returncode != 0:
-        # Affiche la CER_finished pour diagnostiquer les erreurs LaTeX
         print("--- Sortie de pdflatex ---")
         print(result.stdout)
         print("--- Erreurs ---")
         print(result.stderr)
-        raise RuntimeError("Échec de la compilation LaTeX. Voir les messages ci-dessus.")
+        raise RuntimeError("Échec de la compilation LaTeX.")
 
     # Le PDF est produit dans le dossier de travail, on le déplace vers la CER_finished
     pdf_nom = "CER.pdf"

@@ -5,7 +5,7 @@ import pdfplumber
 from llama_cpp import Llama
 import os
 
-#TODO Implementer la logique sachant qu'on upload un fichier et plus un lien que l'on insere
+#TODO Implementer la logique sachant qu'on upload un fichier et plus un lien que l'on met
 
 def extraire_texte_docx(chemin_fichier: str) -> str:
     doc = Document(chemin_fichier)
