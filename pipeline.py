@@ -3,6 +3,7 @@ import json
 from llama_cpp import Llama
 from extract_content import extraire_sections_avec_llama
 from web_research import extraire_sections_utiles, run_research_pipeline
+from plan_action import generer_document_final
 
 chemin_aller_prosit = "files_test/PROSIT ALLER 04.docx" #TODO fichiers test model a retirer pour faire intervenir l'interface web, l'uploade de fichier
 
@@ -37,6 +38,14 @@ if __name__ == "__main__":
     print("Lancement du pipeline de recherche...")
     resultats_recherche = run_research_pipeline(sections, llm)
 
-    with open("json/recherche_resultats.json", "w", encoding="utf-8") as f:  # TODO faire retirer
-        json.dump(resultats_recherche, f, ensure_ascii=False, indent=2)
-    print("✅ Fin du pipeline de recherche...")
+    # 3. Génération du document final à partir du plan détaillé
+    plan_detail = resultats_recherche.get('plan_detail', {})
+
+    if plan_detail:
+        print("📝 Début de la génération du document final...")
+        document_md = generer_document_final(plan_detail, sections, llm)
+        with open("etude.md", "w", encoding="utf-8") as f:
+            f.write(document_md)
+        print("📄 Document final enregistré sous 'etude.md'")
+    else:
+        print("❌ Aucun plan détaillé trouvé, impossible de générer le document.")

@@ -179,4 +179,8 @@ def run_research_pipeline(sections: dict, llm: Llama) -> dict:
     else:
         resultats['plan_detail'] = {}
 
+    with open("json/recherche_resultats.json", "w", encoding="utf-8") as f:  # TODO faire retirer
+        json.dump(resultats, f, ensure_ascii=False, indent=2)
+    print("✅ Fin du pipeline de recherche...")
+
     return resultats
