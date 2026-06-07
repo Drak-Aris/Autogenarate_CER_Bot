@@ -5,23 +5,21 @@ import requests
 from pathlib import Path
 from llama_cpp import Llama
 
-#TODO modifier le nombre de prompt pour la generation du latex plan d'action ca ne suffit pas deja le markdown fais 4800 token
-
 # --- CONFIGURATION ---
 json_informations = "json/informations.json"
 
 chemin_template = "template/Theme_classique/retour_aller"
 json_contenu = "json/resultat_extract.json"
 json_recherche = "json/recherche_resultats.json"
-json_infos = "json/informations.json"          # Fichier contenant les infos auteur
+json_infos = "json/informations.json"
 markdown_source = "etude.md"
 
 dossier_plan_action = Path("template/Theme_classique/plan_d'action")
 lien_definition = dossier_plan_action / "definition_motscles.tex"
 lien_pistes = dossier_plan_action / "pistes_evaluees.tex"
 lien_page_infos = Path("template/Theme_classique/page_informations.tex")
-lien_objectifs = Path("template/Theme_classique/objectifs_apprentissage.tex")          # Fichier des objectifs
-lien_liens_ressources = Path("template/Theme_classique/references_outils.tex")  # Liens et biblio
+lien_objectifs = Path("template/Theme_classique/objectifs_apprentissage.tex")
+lien_liens_ressources = Path("template/Theme_classique/references_outils.tex")
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "foundation_model_latex/qwen2.5-coder-3b-instruct-q4_k_m.gguf")
 N_CTX = 8192
@@ -48,7 +46,7 @@ def charger_pistes(chemin_json: str) -> list:
 
 def charger_infos_auteur(chemin_json: str) -> dict:
     data = charger_json(chemin_json)
-    return data.get("auteur", data)  # si pas de clé "auteur", on prend tout le JSON
+    return data.get("auteur", data)
 
 
 def formater_contenu(texte: str) -> str:
@@ -125,116 +123,111 @@ def ecrire_page_informations(infos: dict):
     print(f"✅ Fichier '{lien_page_infos.name}' mis à jour avec les informations de l'auteur.")
 
 
-# ───────────────────── NOUVELLES FONCTIONS ─────────────────────
+# ───────────────────── GÉNÉRATION DES OBJECTIFS ─────────────────────
+def generer_objectifs_latex(objectifs_str: str) -> str:
+    """
+    Génère le tableau LaTeX complet des objectifs à partir de la chaîne formatée
+    (issue du JSON). La chaîne est de la forme :
+    "Compétence\tDétails\nCONNAISSANCE\t• item1\n• item2\n..."
+    """
+    lignes_data = objectifs_str.strip().split('\n')
+    if len(lignes_data) < 2:
+        return "% Aucun objectif fourni.\n"
 
-def extraire_objectifs(texte: str) -> dict:
-    """
-    Parse la chaîne `objectifs` du JSON (format "Compétence\tDétails\n...").
-    Retourne un dict {compétence: liste de détails}.
-    """
-    mapping = {}
-    lignes = texte.strip().split('\n')
-    for ligne in lignes:
+    # Ignorer la première ligne d'en-tête
+    lignes_competences = lignes_data[1:]
+
+    # Regrouper les lignes par compétence : une compétence commence par une ligne contenant "\t"
+    blocs = []
+    competence_courante = None
+    items_courant = []
+
+    for ligne in lignes_competences:
         if '\t' in ligne:
-            competence, details = ligne.split('\t', 1)
-            # Nettoyage : supprimer les points d'interrogation initiaux (erreur d'encodage)
-            competence = competence.strip().replace('?', '')
-            details = details.strip()
-            # Séparer les détails par des points‑virgules (format du JSON)
-            items = [d.strip().replace('?', '') for d in details.split(';') if d.strip()]
-            mapping[competence] = items
-    return mapping
-
-
-def mettre_a_jour_objectifs(chemin_fichier: Path, objectifs_str: str):
-    """
-    Remplace les listes d'items dans le tableau des objectifs par les nouvelles valeurs.
-    """
-    if not chemin_fichier.exists():
-        raise FileNotFoundError(f"Fichier objectifs introuvable : {chemin_fichier}")
-
-    with open(chemin_fichier, 'r', encoding='utf-8') as f:
-        contenu = f.read()
-
-    mapping = extraire_objectifs(objectifs_str)
-
-    # Pour chaque compétence trouvée, remplacer le contenu de son itemize
-    for competence, items in mapping.items():
-        # Échapper le nom de la compétence pour la regex
-        escaped_comp = re.escape(competence)
-        # Construire les nouveaux items
-        nouveaux_items = '\n'.join([f'        \\item {item}' for item in items])
-        # Pattern : cherche \textbf{Compétence} suivi de \begin{itemize}...\end{itemize}
-        pattern = re.compile(
-            r'(\\textbf\{' + escaped_comp + r'\})\s*\n\s*&?\s*\n\s*\\begin\{itemize\}.*?\\end\{itemize\}',
-            re.DOTALL | re.IGNORECASE
-        )
-        if pattern.search(contenu):
-            contenu = pattern.sub(
-                r'\1\n\\\\\n\\begin{itemize}[leftmargin=1.1cm,itemsep=0.2em]\n' + nouveaux_items + r'\n\\end{itemize}',
-                contenu
-            )
+            # Nouvelle compétence détectée
+            if competence_courante is not None and items_courant:
+                # Sauvegarder le bloc précédent
+                items_latex = '\n'.join(f'    \\item {item}' for item in items_courant)
+                blocs.append(
+                    f'\\textbf{{{competence_courante}}} &\n'
+                    f'\\begin{{itemize}}[leftmargin=1.1cm,itemsep=0.2em]\n'
+                    f'{items_latex}\n'
+                    f'\\end{{itemize}}\\\\\n'
+                )
+            # Extraire la nouvelle compétence et ses premiers items (séparés par \t)
+            parts = ligne.split('\t', 1)
+            competence_courante = parts[0].strip()
+            details = parts[1].strip()
+            # Les items sont séparés par des puces • (suivies d'un espace)
+            # On nettoie les éventuels résidus
+            items_raw = re.split(r'\s*•\s*', details)
+            items_courant = [it.strip().rstrip(';') for it in items_raw if it.strip()]
         else:
-            print(f"⚠️  Compétence '{competence}' non trouvée dans le fichier objectifs.")
+            # Ligne supplémentaire d'items (commence par •)
+            items_raw = re.split(r'\s*•\s*', ligne)
+            for it in items_raw:
+                it = it.strip().rstrip(';')
+                if it:
+                    items_courant.append(it)
 
-    with open(chemin_fichier, 'w', encoding='utf-8') as f:
-        f.write(contenu)
-    print(f"✅ Fichier '{chemin_fichier.name}' mis à jour avec les objectifs.")
-
-
-def mettre_a_jour_liens_ressources(chemin_fichier: Path, liens_str: str, ressources_str: str):
-    """
-    Remplace les listes de liens et la bibliographie dans le fichier.
-    """
-    if not chemin_fichier.exists():
-        raise FileNotFoundError(f"Fichier liens/ressources introuvable : {chemin_fichier}")
-
-    with open(chemin_fichier, 'r', encoding='utf-8') as f:
-        contenu = f.read()
-
-    # ----- Liens (avant la bibliographie) -----
-    liens_items = [l.strip().replace('?', '') for l in liens_str.split('\n') if l.strip()]
-    nouveaux_liens = '\n'.join([f'    \\item \\textit{{{item}}}' for item in liens_items])
-    # Pattern : \begin{itemize}...\end{itemize} avant \begin{thebibliography}
-    pattern_liens = re.compile(
-        r'(\\begin\{itemize\}.*?)\\end\{itemize\}(?=\s*\\begin\{thebibliography\})',
-        re.DOTALL
-    )
-    if pattern_liens.search(contenu):
-        contenu = pattern_liens.sub(
-            r'\1\n' + nouveaux_liens + r'\n\\end{itemize}',
-            contenu
+    # Dernière compétence
+    if competence_courante is not None and items_courant:
+        items_latex = '\n'.join(f'    \\item {item}' for item in items_courant)
+        blocs.append(
+            f'\\textbf{{{competence_courante}}} &\n'
+            f'\\begin{{itemize}}[leftmargin=1.1cm,itemsep=0.2em]\n'
+            f'{items_latex}\n'
+            f'\\end{{itemize}}\\\\\n'
         )
-    else:
-        print("⚠️  Liste de liens non trouvée dans le fichier.")
 
-    # ----- Bibliographie -----
-    biblio_items = [b.strip().replace('?', '') for b in ressources_str.split('\n') if b.strip()]
-    # Génération des entrées \bibitem
-    biblio_latex = []
-    for i, item in enumerate(biblio_items, start=1):
-        biblio_latex.append(f'\\bibitem{{ref{i}}} {item}')
-    nouvelle_biblio = '\n'.join(biblio_latex)
-    # Remplacer le contenu entre \begin{thebibliography} et \end{thebibliography}
-    pattern_biblio = re.compile(
-        r'(\\begin\{thebibliography\}\{.*?\}\s*\n).*?(\\end\{thebibliography\})',
-        re.DOTALL
+    if not blocs:
+        return "% Aucune compétence valide trouvée.\n"
+
+    latex = (
+        '\\begin{center}\n'
+        '\\small\n'
+        '\\begin{tabularx}{\\textwidth}{L{3.8cm}Y}\n'
+        '\\toprule\n'
+        '\\textbf{Compétence} & \\textbf{Détails} \\\\\n'
+        '\\midrule\n'
+        + '\n'.join(blocs) +
+        '\\bottomrule\n'
+        '\\end{tabularx}\n'
+        '\\end{center}\n'
     )
-    if pattern_biblio.search(contenu):
-        contenu = pattern_biblio.sub(
-            r'\1' + nouvelle_biblio + r'\n\2',
-            contenu
-        )
-    else:
-        print("⚠️  Bibliographie non trouvée dans le fichier.")
+    return latex
 
-    with open(chemin_fichier, 'w', encoding='utf-8') as f:
-        f.write(contenu)
-    print(f"✅ Fichier '{chemin_fichier.name}' mis à jour avec liens et ressources.")
+
+# ───────────────────── GÉNÉRATION DES LIENS/RESSOURCES ─────────────────────
+def generer_liens_ressources_latex(liens_str: str, ressources_str: str) -> str:
+    latex = ""
+
+    if liens_str.strip():
+        items_liens = [l.strip() for l in liens_str.split('\n') if l.strip()]
+        items_liens = [re.sub(r'^[·\-•*o\+]\s*', '', it) for it in items_liens]
+        items_latex = '\n'.join(f'    \\item \\textit{{{item}}}' for item in items_liens)
+        latex += (
+            '\\begin{itemize}[leftmargin=1.2cm]\n'
+            f'{items_latex}\n'
+            '\\end{itemize}\n\n'
+        )
+
+    if ressources_str.strip():
+        items_ressources = [r.strip() for r in ressources_str.split('\n') if r.strip()]
+        items_ressources = [re.sub(r'^[·\-•*o\+]\s*', '', it) for it in items_ressources]
+        biblio = []
+        for i, item in enumerate(items_ressources, start=1):
+            biblio.append(f'\\bibitem{{ref{i}}} {item}')
+        latex += (
+            '\\begin{thebibliography}{9}\n'
+            + '\n'.join(biblio) + '\n'
+            '\\end{thebibliography}\n'
+        )
+
+    return latex if latex else "% Aucun lien ou ressource.\n"
 
 
 # ─────────────────────────────────────────────────────────────
-
 
 def charger_contenu_markdown(source: str) -> str:
     if source.startswith("http://") or source.startswith("https://"):
@@ -345,68 +338,6 @@ def main():
     dossier = Path(chemin_template)
     dossier.mkdir(parents=True, exist_ok=True)
 
-    # --- 1. Traitement des clés du JSON (écrasement total) ---
-    for cle, texte in donnees.items():
-        if cle in key_ignore:
-            print(f"⏭️  Clé ignorée : '{cle}'")
-            continue
-
-        if not isinstance(texte, str):
-            print(f"⚠️  La valeur pour la clé '{cle}' n'est pas une chaîne, ignorée.")
-            continue
-
-        contenu_formate = formater_contenu(texte)
-        ecrire_fichier_cle(dossier, cle, contenu_formate)
-
-    # --- 2. Mise à jour de etudes.tex avec le contenu du markdown ---
-    if os.path.isfile(markdown_source):
-        try:
-            md_content = charger_contenu_markdown(markdown_source)
-            dossier_plan_action.mkdir(parents=True, exist_ok=True)
-
-            print("Chargement du modèle IA pour générer le contenu de l'étude...")
-            llm = Llama(
-                model_path=MODEL_PATH,
-                n_ctx=N_CTX,
-                n_threads=4,
-                verbose=False
-            )
-            print("Modèle IA chargé. Génération du LaTeX à partir du markdown...")
-            latex_genere = generer_latex_depuis_markdown(md_content, llm)
-            llm.close()
-            print("Modèle IA déchargé.")
-
-            chemin_etude = dossier_plan_action / "etudes.tex"
-            with open(chemin_etude, 'w', encoding='utf-8') as f:
-                f.write(latex_genere)
-            print(f"✅ Fichier '{chemin_etude.name}' mis à jour avec le contenu du markdown.")
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour de l'étude : {e}")
-    else:
-        print(f"⚠️  Fichier markdown '{markdown_source}' introuvable, étude non modifiée.")
-
-    # --- 3. Définitions et pistes depuis le JSON de recherche ---
-    if os.path.isfile(json_recherche):
-        try:
-            definitions = charger_definitions(json_recherche)
-            if definitions:
-                ecrire_definitions(definitions)
-            else:
-                print("⚠️  Aucune définition trouvée dans le fichier de recherche.")
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour des définitions : {e}")
-
-        try:
-            pistes = charger_pistes(json_recherche)
-            if pistes:
-                ecrire_pistes_evaluees(pistes)
-            else:
-                print("⚠️  Aucune piste évaluée trouvée dans le fichier de recherche.")
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour des pistes : {e}")
-    else:
-        print(f"⚠️  Fichier de recherche introuvable : {json_recherche}")
-
     # --- 4. Mise à jour de la page d'informations (auteur) ---
     if os.path.isfile(json_infos):
         try:
@@ -426,7 +357,11 @@ def main():
             data = charger_json(json_infos)
             objectifs_str = data.get("objectifs", "")
             if objectifs_str:
-                mettre_a_jour_objectifs(lien_objectifs, objectifs_str)
+                latex_objectifs = generer_objectifs_latex(objectifs_str)
+                lien_objectifs.parent.mkdir(parents=True, exist_ok=True)
+                with open(lien_objectifs, 'w', encoding='utf-8') as f:
+                    f.write(latex_objectifs)
+                print(f"✅ Fichier '{lien_objectifs.name}' généré avec les objectifs.")
         except Exception as e:
             print(f"❌ Erreur lors de la mise à jour des objectifs : {e}")
 
@@ -437,7 +372,11 @@ def main():
             liens_str = data.get("liens", "")
             ressources_str = data.get("ressources", "")
             if liens_str or ressources_str:
-                mettre_a_jour_liens_ressources(lien_liens_ressources, liens_str, ressources_str)
+                latex_lr = generer_liens_ressources_latex(liens_str, ressources_str)
+                lien_liens_ressources.parent.mkdir(parents=True, exist_ok=True)
+                with open(lien_liens_ressources, 'w', encoding='utf-8') as f:
+                    f.write(latex_lr)
+                print(f"✅ Fichier '{lien_liens_ressources.name}' généré avec liens et ressources.")
         except Exception as e:
             print(f"❌ Erreur lors de la mise à jour des liens/ressources : {e}")
 
