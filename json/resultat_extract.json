@@ -1,0 +1,10 @@
+{
+  "mot cles": "Logs\\nBoucles infinies\\nRègle précondition, poste condition\\nPreuve formelle\\nInvarient\\nTerminaison d’un algorithme\\nPropriété\\nRaisonnement rigoureux\\nCondition d’entrée\\nChaine logique, arbre d’appel récursif\\nPseudocode, équation d’induction, fonction Vnon",
+  "contexte": "Au laboratoire KADJI, un algorithme d’IA utilisé pour le triage médical dans les hôpitaux tourne en boucles infinie sans jamais s’arrêter. En cherchant la cause, l’équipe réalise qu’ils n’ont jamais prouvé que leur algorithme était correct. La mission est donc de reprendre l’algorithme depuis ses fondations et de démontrer formellement à l’aide de précondition, postcondition, invariants de boucle, et d’une preuve de terminaison qu’il produit toujours le bon résultat et qu’il s’arrête forcement.",
+  "besoins": "Connaissances sur les préconditions, postcondition, et invariant\\nConnaissances sur les boucles (infini et annoté)\\nConnaissances sur la chaine logique, arignon récursif, équation d’induction, fonction Vnon",
+  "contraintes": "",
+  "problematiques": "Comment garantir la correction totale et la terminaison d’un algorithme critique à travers une spécification formelle rigoureuse？",
+  "generalisation": "Processus de validation d’un algorithme",
+  "pistes de solution": "Quelles sont les fondations d’un bon algorithme？\\nComment garantir qu’un algorithme est correct\\nComment justifier le fonctionnement d’un algorithme？\\nComment constituer la chaine logique d’un algorithme？\\nQuelles sont les étapes de conception, d’écriture et de test d’un algorithme？",
+  "plan action": "Etablir une liste des éléments qui fondent un algorithme\\nEtablir un tableau qui ressort les caractéristiques et les rôles des préconditions, postcondition, et invariants d’un algorithme\\nDéfinir les étapes de constitution des preuves formelles de correction d’un algorithme pour garantir sa fiabilité\\nEtablir les étapes de revue de code et d’un audit du système pour identifier les problèmes potentiels et améliorer la qualité d code."
+}

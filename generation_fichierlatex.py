@@ -338,6 +338,68 @@ def main():
     dossier = Path(chemin_template)
     dossier.mkdir(parents=True, exist_ok=True)
 
+    # --- 1. Traitement des clés du JSON (écrasement total) ---
+    for cle, texte in donnees.items():
+        if cle in key_ignore:
+            print(f"⏭️  Clé ignorée : '{cle}'")
+            continue
+
+        if not isinstance(texte, str):
+            print(f"⚠️  La valeur pour la clé '{cle}' n'est pas une chaîne, ignorée.")
+            continue
+
+        contenu_formate = formater_contenu(texte)
+        ecrire_fichier_cle(dossier, cle, contenu_formate)
+
+    # --- 2. Mise à jour de etudes.tex avec le contenu du markdown ---
+    if os.path.isfile(markdown_source):
+        try:
+            md_content = charger_contenu_markdown(markdown_source)
+            dossier_plan_action.mkdir(parents=True, exist_ok=True)
+
+            print("Chargement du modèle IA pour générer le contenu de l'étude...")
+            llm = Llama(
+                model_path=MODEL_PATH,
+                n_ctx=N_CTX,
+                n_threads=4,
+                verbose=False
+            )
+            print("Modèle IA chargé. Génération du LaTeX à partir du markdown...")
+            latex_genere = generer_latex_depuis_markdown(md_content, llm)
+            llm.close()
+            print("Modèle IA déchargé.")
+
+            chemin_etude = dossier_plan_action / "etudes.tex"
+            with open(chemin_etude, 'w', encoding='utf-8') as f:
+                f.write(latex_genere)
+            print(f"✅ Fichier '{chemin_etude.name}' mis à jour avec le contenu du markdown.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la mise à jour de l'étude : {e}")
+    else:
+        print(f"⚠️  Fichier markdown '{markdown_source}' introuvable, étude non modifiée.")
+
+    # --- 3. Définitions et pistes depuis le JSON de recherche ---
+    if os.path.isfile(json_recherche):
+        try:
+            definitions = charger_definitions(json_recherche)
+            if definitions:
+                ecrire_definitions(definitions)
+            else:
+                print("⚠️  Aucune définition trouvée dans le fichier de recherche.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la mise à jour des définitions : {e}")
+
+        try:
+            pistes = charger_pistes(json_recherche)
+            if pistes:
+                ecrire_pistes_evaluees(pistes)
+            else:
+                print("⚠️  Aucune piste évaluée trouvée dans le fichier de recherche.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la mise à jour des pistes : {e}")
+    else:
+        print(f"⚠️  Fichier de recherche introuvable : {json_recherche}")
+
     # --- 4. Mise à jour de la page d'informations (auteur) ---
     if os.path.isfile(json_infos):
         try:
