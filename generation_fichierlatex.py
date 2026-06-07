@@ -21,6 +21,9 @@ lien_page_infos = Path("template/Theme_classique/page_informations.tex")
 lien_objectifs = Path("template/Theme_classique/objectifs_apprentissage.tex")
 lien_liens_ressources = Path("template/Theme_classique/references_outils.tex")
 
+coeurs_logiques = os.cpu_count() or 4 # 4 par défaut si la détection échoue
+coeurs_physiques = max(1, coeurs_logiques // 2)
+
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "foundation_model_latex/qwen2.5-coder-3b-instruct-q4_k_m.gguf")
 N_CTX = 16384
 MAX_TOKENS_GEN = N_CTX - 1000
@@ -346,7 +349,6 @@ def main():
 
     dossier = Path(chemin_template)
     dossier.mkdir(parents=True, exist_ok=True)
-
     # --- 1. Traitement des clés du JSON (écrasement total) ---
     for cle, texte in donnees.items():
         if cle in key_ignore:
@@ -358,51 +360,48 @@ def main():
         contenu_formate = formater_contenu(texte)
         ecrire_fichier_cle(dossier, cle, contenu_formate)
 
-        # --- 2. Mise à jour de etudes.tex avec le contenu du markdown ---
-        if os.path.isfile(markdown_source):
-            try:
-                md_content = charger_contenu_markdown(markdown_source)
-                dossier_plan_action.mkdir(parents=True, exist_ok=True)
+    if os.path.isfile(markdown_source):
+        try:
+            md_content = charger_contenu_markdown(markdown_source)
+            dossier_plan_action.mkdir(parents=True, exist_ok=True)
 
-                print("Chargement du modèle IA pour générer le contenu de l'étude...")
-                # TES PARAMÈTRES RESTENT INTACTS ICI
-                llm = Llama(
-                    model_path=MODEL_PATH,
-                    n_ctx=N_CTX,
-                    n_threads=8,
-                    use_mlock=False,
-                    verbose=False
-                )
-                print("Modèle IA chargé.")
+            print("Chargement du modèle IA pour générer le contenu de l'étude...")
+            llm = Llama(
+                model_path=MODEL_PATH,
+                n_ctx=N_CTX,
+                n_threads=coeurs_physiques,
+                use_mlock=False,
+                verbose=False
+            )
+            print("Modèle IA chargé.")
 
-                # --- DÉBUT DE L'OPTIMISATION DU FLUX ---
-                sections_md = decouper_markdown(md_content)
-                print(f"Document découpé en {len(sections_md)} sections pour soulager le CPU.")
+            # --- DÉBUT DE L'OPTIMISATION DU FLUX ---
+            sections_md = decouper_markdown(md_content)
+            print(f"Document découpé en {len(sections_md)} sections pour soulager le CPU.")
 
-                latex_final = []
-                for idx, section in enumerate(sections_md, start=1):
-                    print(f" -> Traduction de la section {idx}/{len(sections_md)} en cours...")
-                    # Le modèle ne reçoit qu'un petit morceau à la fois, le calcul est ultra-rapide
-                    latex_morceau = generer_latex_depuis_markdown(section, llm)
-                    latex_final.append(latex_morceau)
-                # --- FIN DE L'OPTIMISATION ---
+            latex_final = []
+            for idx, section in enumerate(sections_md, start=1):
+                print(f" -> Traduction de la section {idx}/{len(sections_md)} en cours...")
+                latex_morceau = generer_latex_depuis_markdown(section, llm)
+                latex_final.append(latex_morceau)
+            # --- FIN DE L'OPTIMISATION ---
 
-                llm.close()
-                print("Modèle IA déchargé.")
+            llm.close()
+            print("Modèle IA déchargé.")
 
-                # On rassemble tous les morceaux traduits
-                contenu_complet_latex = "\n\n".join(latex_final)
+            # On rassemble tous les morceaux traduits
+            contenu_complet_latex = "\n\n".join(latex_final)
 
-                chemin_etude = dossier_plan_action / "etudes.tex"
-                with open(chemin_etude, 'w', encoding='utf-8') as f:
-                    f.write(contenu_complet_latex)
-                print(f"✅ Fichier '{chemin_etude.name}' mis à jour avec le contenu du markdown.")
-            except Exception as e:
-                print(f"❌ Erreur lors de la mise à jour de l'étude : {e}")
-        else:
-            print(f"⚠️  Fichier markdown '{markdown_source}' introuvable, étude non modifiée.")
+            chemin_etude = dossier_plan_action / "etudes.tex"
+            with open(chemin_etude, 'w', encoding='utf-8') as f:
+                f.write(contenu_complet_latex)
+            print(f"✅ Fichier '{chemin_etude.name}' mis à jour avec le contenu du markdown.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la mise à jour de l'étude : {e}")
+    else:
+        print(f"⚠️  Fichier markdown '{markdown_source}' introuvable, étude non modifiée.")
 
-        # --- 3. Définitions et pistes depuis le JSON de recherche ---
+    # --- 3. Définitions et pistes depuis le JSON de recherche ---
     if os.path.isfile(json_recherche):
         try:
             definitions = charger_definitions(json_recherche)
