@@ -39,7 +39,7 @@ serper_api = os.getenv("serper_api_key")
 if not serper_api:
     raise ValueError("La clé API de serper rencontre un probleme.")
 
-max_result = 7
+max_result = 6
 
 search = GoogleSerperAPIWrapper(serper_api_key=serper_api, k=max_result)
 

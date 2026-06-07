@@ -4,7 +4,7 @@ from extract_content import extraire_sections_avec_llama
 from web_research import extraire_sections_utiles, run_research_pipeline
 from plan_action import generer_document_final
 
-chemin_aller_prosit = "files_test/Prosit aller 6.docx" #TODO fichiers test model a retirer pour faire intervenir l'interface web, l'uploade de fichier
+chemin_aller_prosit = "files_test/Prosit aller 5 .docx" #TODO fichiers test model a retirer pour faire intervenir l'interface web, l'uploade de fichier
 
 model_path = os.path.join(os.path.dirname(__file__), "foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
 
@@ -32,19 +32,3 @@ if __name__ == "__main__":
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Modèle introuvable : {model_path}")
-
-    print("...")
-    print("Lancement du pipeline de recherche...")
-    resultats_recherche = run_research_pipeline(sections, llm)
-
-    # 3. Génération du document final à partir du plan détaillé
-    plan_detail = resultats_recherche.get('plan_detail', {})
-
-    if plan_detail:
-        print("Début de la génération du plan d'action...")
-        document_md = generer_document_final(plan_detail, sections, llm)
-        with open("etude.md", "w", encoding="utf-8") as f:
-            f.write(document_md)
-        print("📝 Plan d'action generer")
-    else:
-        print("❌ Aucun plan détaillé trouvé, impossible de générer le document.")
