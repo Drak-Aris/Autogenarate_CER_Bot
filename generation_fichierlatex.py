@@ -5,6 +5,8 @@ import requests
 from pathlib import Path
 from llama_cpp import Llama
 
+#TODO modifier le nombre de prompt pour la generation du latex plan d'action ca ne suffit pas deja le markdown fais 4800 token
+
 # --- CONFIGURATION ---
 json_informations = "json/informations.json"
 
