@@ -97,31 +97,22 @@ def extraire_sections_avec_llama(chemin_aller_prosit: str, llm: Llama, max_token
     for champ in champs_listes:
         if champ in sections and sections[champ]:
             contenu = sections[champ]
-
-            # Vérification stricte : le post-traitement n'intervient que s'il n'y a pas le littéral "\\n"
-            # (écrit r"\n" en python) et aucun saut de ligne classique "\n"
             if r"\n" not in contenu and "\n" not in contenu:
-                # 1. Utiliser les points d'interrogation comme séparateurs (conserve le ? et ajoute \n)
                 contenu = re.sub(r"(\?+)\s*", r"\1\n", contenu)
 
-                # 2. Remplacer les séparateurs classiques (apostrophe exclue)
                 contenu = re.sub(r"[;；]+", "\n", contenu)
                 contenu = re.sub(r"\s*[•·\-–—]\s*", "\n", contenu)
 
-                # 3. Séparer par les majuscules (si une minuscule est suivie d'un espace puis d'une majuscule)
                 contenu = re.sub(r"([a-zà-ÿ])\s+([A-ZÀ-Ÿ])", r"\1\n\2", contenu)
 
-                # 4. Séparateur de numérotation
                 contenu = re.sub(r"(?<!\d)(\d+)\.\s+", r"\n\1. ", contenu)
 
-                # 5. Nettoyage final des espaces et sauts de ligne multiples
                 contenu = re.sub(r"\n\s*\n+", "\n", contenu)
                 contenu = re.sub(r" *\n *", "\n", contenu)
                 contenu = contenu.strip()
 
                 sections[champ] = contenu
 
-    # Assurer que le dossier json existe avant de sauvegarder
     dossier_sortie = Path(os.path.dirname(__file__), "json")
     dossier_sortie.mkdir(parents=True, exist_ok=True)
     chemin_sortie = dossier_sortie / "resultat_extract.json"

@@ -328,6 +328,14 @@ def generer_latex_depuis_markdown(contenu_markdown: str, llm: Llama) -> str:
         raise ValueError("Le LLM n'a pas retourné de code LaTeX valide.")
     return latex_genere
 
+def decouper_markdown(contenu: str) -> list:
+    """Découpe le document markdown en sections gérables pour le CPU."""
+    # On utilise une regex pour couper avant chaque séparateur '---' ou titre '### '
+    sections_brutes = re.split(r'(?=\n---|(?:\n|^)### )', contenu)
+    # On nettoie les sections vides
+    sections = [sec.strip() for sec in sections_brutes if sec.strip()]
+    return sections
+
 
 def main():
     if not os.path.isfile(json_contenu):
@@ -339,33 +347,131 @@ def main():
     dossier = Path(chemin_template)
     dossier.mkdir(parents=True, exist_ok=True)
 
-    # --- 2. Mise à jour de etudes.tex avec le contenu du markdown ---
-    if os.path.isfile(markdown_source):
+    # --- 1. Traitement des clés du JSON (écrasement total) ---
+    for cle, texte in donnees.items():
+        if cle in key_ignore:
+            print(f"⏭️  Clé ignorée : '{cle}'")
+            continue
+        if not isinstance(texte, str):
+            print(f"⚠️  La valeur pour la clé '{cle}' n'est pas une chaîne, ignorée.")
+            continue
+        contenu_formate = formater_contenu(texte)
+        ecrire_fichier_cle(dossier, cle, contenu_formate)
+
+        # --- 2. Mise à jour de etudes.tex avec le contenu du markdown ---
+        if os.path.isfile(markdown_source):
+            try:
+                md_content = charger_contenu_markdown(markdown_source)
+                dossier_plan_action.mkdir(parents=True, exist_ok=True)
+
+                print("Chargement du modèle IA pour générer le contenu de l'étude...")
+                # TES PARAMÈTRES RESTENT INTACTS ICI
+                llm = Llama(
+                    model_path=MODEL_PATH,
+                    n_ctx=N_CTX,
+                    n_threads=8,
+                    use_mlock=False,
+                    verbose=False
+                )
+                print("Modèle IA chargé.")
+
+                # --- DÉBUT DE L'OPTIMISATION DU FLUX ---
+                sections_md = decouper_markdown(md_content)
+                print(f"Document découpé en {len(sections_md)} sections pour soulager le CPU.")
+
+                latex_final = []
+                for idx, section in enumerate(sections_md, start=1):
+                    print(f" -> Traduction de la section {idx}/{len(sections_md)} en cours...")
+                    # Le modèle ne reçoit qu'un petit morceau à la fois, le calcul est ultra-rapide
+                    latex_morceau = generer_latex_depuis_markdown(section, llm)
+                    latex_final.append(latex_morceau)
+                # --- FIN DE L'OPTIMISATION ---
+
+                llm.close()
+                print("Modèle IA déchargé.")
+
+                # On rassemble tous les morceaux traduits
+                contenu_complet_latex = "\n\n".join(latex_final)
+
+                chemin_etude = dossier_plan_action / "etudes.tex"
+                with open(chemin_etude, 'w', encoding='utf-8') as f:
+                    f.write(contenu_complet_latex)
+                print(f"✅ Fichier '{chemin_etude.name}' mis à jour avec le contenu du markdown.")
+            except Exception as e:
+                print(f"❌ Erreur lors de la mise à jour de l'étude : {e}")
+        else:
+            print(f"⚠️  Fichier markdown '{markdown_source}' introuvable, étude non modifiée.")
+
+        # --- 3. Définitions et pistes depuis le JSON de recherche ---
+    if os.path.isfile(json_recherche):
         try:
-            md_content = charger_contenu_markdown(markdown_source)
-            dossier_plan_action.mkdir(parents=True, exist_ok=True)
-
-            print("Chargement du modèle IA pour générer le contenu de l'étude...")
-            llm = Llama(
-                model_path=MODEL_PATH,
-                n_ctx=N_CTX,
-                n_threads=8,
-                use_mlock=False,
-                verbose=False
-            )
-            print("Modèle IA chargé. Génération du LaTeX à partir du markdown...")
-            latex_genere = generer_latex_depuis_markdown(md_content, llm)
-            llm.close()
-            print("Modèle IA déchargé.")
-
-            chemin_etude = dossier_plan_action / "etudes.tex"
-            with open(chemin_etude, 'w', encoding='utf-8') as f:
-                f.write(latex_genere)
-            print(f"✅ Fichier '{chemin_etude.name}' mis à jour avec le contenu du markdown.")
+            definitions = charger_definitions(json_recherche)
+            if definitions:
+                ecrire_definitions(definitions)
+            else:
+                print("⚠️  Aucune définition trouvée dans le fichier de recherche.")
         except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour de l'étude : {e}")
+            print(f"❌ Erreur lors de la mise à jour des définitions : {e}")
+        try:
+            pistes = charger_pistes(json_recherche)
+            if pistes:
+                ecrire_pistes_evaluees(pistes)
+            else:
+                print("⚠️  Aucune piste évaluée trouvée dans le fichier de recherche.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la mise à jour des pistes : {e}")
     else:
-        print(f"⚠️  Fichier markdown '{markdown_source}' introuvable, étude non modifiée.")
+        print(f"⚠️  Fichier de recherche introuvable : {json_recherche}")
+        # --- 4. Mise à jour de la page d'informations (auteur) ---
+    if os.path.isfile(json_infos):
+        try:
+            infos = charger_infos_auteur(json_infos)
+            if infos:
+                ecrire_page_informations(infos)
+            else:
+                print("⚠️  Aucune information d'auteur trouvée dans le JSON.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la mise à jour de la page d'informations : {e}")
+    else:
+        print(f"⚠️  Fichier JSON d'informations '{json_infos}' introuvable, page non modifiée.")
+        # --- 5. Mise à jour des objectifs ---
+    if os.path.isfile(json_infos):
+        try:
+            data = charger_json(json_infos)
+            objectifs_str = data.get("objectifs", "")
+            if objectifs_str:
+                latex_objectifs = generer_objectifs_latex(objectifs_str)
+                lien_objectifs.parent.mkdir(parents=True, exist_ok=True)
+                with open(lien_objectifs, 'w', encoding='utf-8') as f:
+                    f.write(latex_objectifs)
+                print(f"✅ Fichier '{lien_objectifs.name}' généré avec les objectifs.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la mise à jour des objectifs : {e}")
+        # --- 6. Mise à jour des liens et ressources ---
+    if os.path.isfile(json_infos):
+        try:
+            data = charger_json(json_infos)
+            liens_str = data.get("liens", "")
+            ressources_str = data.get("ressources", "")
+            if liens_str or ressources_str:
+                latex_lr = generer_liens_ressources_latex(liens_str, ressources_str)
+                lien_liens_ressources.parent.mkdir(parents=True, exist_ok=True)
+                with open(lien_liens_ressources, 'w', encoding='utf-8') as f:
+                    f.write(latex_lr)
+                print(f"✅ Fichier '{lien_liens_ressources.name}' généré avec liens et ressources.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la mise à jour des liens/ressources : {e}")
+        # --- 7. Mise à jour du titre dans retour_aller/titre.tex ---
+    if os.path.isfile(json_infos):
+        try:
+            data = charger_json(json_infos)
+            titre_str = data.get("titre", "")
+            if titre_str:
+                ecrire_fichier_cle(dossier, "titre", titre_str)
+                print(f"✅ Fichier 'titre.tex' mis à jour avec le titre.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la mise à jour du titre : {e}")
+    print(f"\n✅ Traitement terminé.")
 
 
 
