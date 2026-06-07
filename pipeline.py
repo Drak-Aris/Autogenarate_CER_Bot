@@ -4,7 +4,7 @@ from extract_content import extraire_sections_avec_llama
 from web_research import extraire_sections_utiles, run_research_pipeline
 from plan_action import generer_document_final
 
-chemin_aller_prosit = "files_test/PROSIT ALLER 3.docx" #TODO fichiers test model a retirer pour faire intervenir l'interface web, l'uploade de fichier
+chemin_aller_prosit = "files_test/Prosit aller 6.docx" #TODO fichiers test model a retirer pour faire intervenir l'interface web, l'uploade de fichier
 
 model_path = os.path.join(os.path.dirname(__file__), "foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
 
