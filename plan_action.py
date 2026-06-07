@@ -54,7 +54,6 @@ def generer_document_final(plan_detail: dict, sections:dict, llm: Llama) -> dict
         "- Introduction générale\n"
         "- Pour chaque section des notes : définition, concepts clés, exemples (en pseudo-code si pertinent), tableau comparatif (obligatoire pour chaque thème si pertinent), points d'attention.\n"
         "- Transitions fluides entre les sections\n"
-        "- Conclusion synthétique et ouverture\n\n"
         "Utilise toutes les informations fournies, enrichis-les avec tes connaissances, et développe chaque point pour atteindre la longueur demandée.\n"
         "IMPORTANT : Ne termine PAS le document par une mention du nombre de tokens, ni par 'Total des tokens', ni par aucune autre note technique. La dernière phrase doit faire partie de la conclusion.\n\n"
         f"Notes (résumés) :\n{bloc_resumes}."

@@ -1,15 +1,18 @@
 import json
+import re
 from pathlib import Path
 from docx import Document
 import pdfplumber
 from llama_cpp import Llama
 import os
 
-#TODO Implementer la logique sachant qu'on upload un fichier et plus un lien que l'on met
+
+# TODO Implementer la logique sachant qu'on upload un fichier et plus un lien que l'on met
 
 def extraire_texte_docx(chemin_fichier: str) -> str:
     doc = Document(chemin_fichier)
     return "\n".join([p.text for p in doc.paragraphs])
+
 
 def extraire_texte_pdf(chemin_fichier: str) -> str:
     texte_complet = []
@@ -20,7 +23,8 @@ def extraire_texte_pdf(chemin_fichier: str) -> str:
                 texte_complet.append(texte_page)
     return "\n".join(texte_complet)
 
-def extraire_sections_avec_llama(chemin_aller_prosit:str, llm: Llama, max_tokens, temperature) -> dict:
+
+def extraire_sections_avec_llama(chemin_aller_prosit: str, llm: Llama, max_tokens, temperature) -> dict:
     extension = Path(chemin_aller_prosit).suffix.lower()
     if extension == ".docx":
         texte = extraire_texte_docx(chemin_aller_prosit)
@@ -50,7 +54,7 @@ def extraire_sections_avec_llama(chemin_aller_prosit:str, llm: Llama, max_tokens
        **Important** : La section "plan action" ne doit PAS contenir la ligne "Définition des mots clés" (ou toute variante comme "Définir les mots clés", "Définition des termes"). Cette tâche est déjà couverte par la section "mot cles". Ne mets que les actions suivantes.
     5. N'ajoute aucun commentaire avant ou après le JSON.
     6. Pour les sections qui contiennent une liste d'éléments (comme des mots-clés, des besoins, des pistes de solution), écris chaque élément sur une ligne distincte dans la chaîne JSON.
-    place chaque élément sur une ligne distincte. Dans une chaîne JSON, un saut de ligne s'écrit\n(un seul antislash suivi de la lettre n).
+    place chaque élément sur une ligne distincte. Dans une chaîne JSON, un saut de ligne s'écrit\\n(un seul antislash suivi de la lettre n).
 
     Texte :
     {texte}
@@ -72,7 +76,7 @@ def extraire_sections_avec_llama(chemin_aller_prosit:str, llm: Llama, max_tokens
         if content:
             print(content, end='', flush=True)
             full_text += content
-    print("Fin de l'extraction des informations du prosit aller...")
+    print("\nFin de l'extraction des informations du prosit aller...")
 
     reponse = full_text.strip()
 
@@ -88,7 +92,41 @@ def extraire_sections_avec_llama(chemin_aller_prosit:str, llm: Llama, max_tokens
         print("Réponse brute :", reponse)
         return {}
 
-    chemin_sortie = Path(os.path.dirname(__file__),"json/resultat_extract").with_suffix(".json")
+    champs_listes = ["mot cles", "besoins", "pistes de solution", "plan action", "contraintes", "problematiques"]
+
+    for champ in champs_listes:
+        if champ in sections and sections[champ]:
+            contenu = sections[champ]
+
+            # Vérification stricte : le post-traitement n'intervient que s'il n'y a pas le littéral "\\n"
+            # (écrit r"\n" en python) et aucun saut de ligne classique "\n"
+            if r"\n" not in contenu and "\n" not in contenu:
+                # 1. Utiliser les points d'interrogation comme séparateurs (conserve le ? et ajoute \n)
+                contenu = re.sub(r"(\?+)\s*", r"\1\n", contenu)
+
+                # 2. Remplacer les séparateurs classiques (apostrophe exclue)
+                contenu = re.sub(r"[;；]+", "\n", contenu)
+                contenu = re.sub(r"\s*[•·\-–—]\s*", "\n", contenu)
+
+                # 3. Séparer par les majuscules (si une minuscule est suivie d'un espace puis d'une majuscule)
+                contenu = re.sub(r"([a-zà-ÿ])\s+([A-ZÀ-Ÿ])", r"\1\n\2", contenu)
+
+                # 4. Séparateur de numérotation
+                contenu = re.sub(r"(?<!\d)(\d+)\.\s+", r"\n\1. ", contenu)
+
+                # 5. Nettoyage final des espaces et sauts de ligne multiples
+                contenu = re.sub(r"\n\s*\n+", "\n", contenu)
+                contenu = re.sub(r" *\n *", "\n", contenu)
+                contenu = contenu.strip()
+
+                sections[champ] = contenu
+
+    # Assurer que le dossier json existe avant de sauvegarder
+    dossier_sortie = Path(os.path.dirname(__file__), "json")
+    dossier_sortie.mkdir(parents=True, exist_ok=True)
+    chemin_sortie = dossier_sortie / "resultat_extract.json"
+
     with open(chemin_sortie, "w", encoding="utf-8") as f:
         json.dump(sections, f, ensure_ascii=False, indent=2)
+
     return sections

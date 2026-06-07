@@ -22,8 +22,8 @@ lien_objectifs = Path("template/Theme_classique/objectifs_apprentissage.tex")
 lien_liens_ressources = Path("template/Theme_classique/references_outils.tex")
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "foundation_model_latex/qwen2.5-coder-3b-instruct-q4_k_m.gguf")
-N_CTX = 8192
-MAX_TOKENS_GEN = N_CTX - 100
+N_CTX = 16384
+MAX_TOKENS_GEN = N_CTX - 1000
 
 key_ignore = {"mot cles"}
 
@@ -302,6 +302,7 @@ def generer_latex_depuis_markdown(contenu_markdown: str, llm: Llama) -> str:
         "Voici le contenu markdown à convertir :\n\n"
         f"{contenu_markdown}\n\n"
         "Retourne UNIQUEMENT le code LaTeX résultant, sans aucun autre caractère."
+        "IMPORTANT : Ne termine PAS le document par une note ou phrase autre que **LA DERNIERE PHRASE QUI FAIT PARTIE DE LA CONCLUSION.**\n\n"
     )
 
     messages = [
@@ -338,19 +339,6 @@ def main():
     dossier = Path(chemin_template)
     dossier.mkdir(parents=True, exist_ok=True)
 
-    # --- 1. Traitement des clés du JSON (écrasement total) ---
-    for cle, texte in donnees.items():
-        if cle in key_ignore:
-            print(f"⏭️  Clé ignorée : '{cle}'")
-            continue
-
-        if not isinstance(texte, str):
-            print(f"⚠️  La valeur pour la clé '{cle}' n'est pas une chaîne, ignorée.")
-            continue
-
-        contenu_formate = formater_contenu(texte)
-        ecrire_fichier_cle(dossier, cle, contenu_formate)
-
     # --- 2. Mise à jour de etudes.tex avec le contenu du markdown ---
     if os.path.isfile(markdown_source):
         try:
@@ -361,7 +349,8 @@ def main():
             llm = Llama(
                 model_path=MODEL_PATH,
                 n_ctx=N_CTX,
-                n_threads=4,
+                n_threads=8,
+                use_mlock=False,
                 verbose=False
             )
             print("Modèle IA chargé. Génération du LaTeX à partir du markdown...")
@@ -378,82 +367,7 @@ def main():
     else:
         print(f"⚠️  Fichier markdown '{markdown_source}' introuvable, étude non modifiée.")
 
-    # --- 3. Définitions et pistes depuis le JSON de recherche ---
-    if os.path.isfile(json_recherche):
-        try:
-            definitions = charger_definitions(json_recherche)
-            if definitions:
-                ecrire_definitions(definitions)
-            else:
-                print("⚠️  Aucune définition trouvée dans le fichier de recherche.")
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour des définitions : {e}")
 
-        try:
-            pistes = charger_pistes(json_recherche)
-            if pistes:
-                ecrire_pistes_evaluees(pistes)
-            else:
-                print("⚠️  Aucune piste évaluée trouvée dans le fichier de recherche.")
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour des pistes : {e}")
-    else:
-        print(f"⚠️  Fichier de recherche introuvable : {json_recherche}")
-
-    # --- 4. Mise à jour de la page d'informations (auteur) ---
-    if os.path.isfile(json_infos):
-        try:
-            infos = charger_infos_auteur(json_infos)
-            if infos:
-                ecrire_page_informations(infos)
-            else:
-                print("⚠️  Aucune information d'auteur trouvée dans le JSON.")
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour de la page d'informations : {e}")
-    else:
-        print(f"⚠️  Fichier JSON d'informations '{json_infos}' introuvable, page non modifiée.")
-
-    # --- 5. Mise à jour des objectifs ---
-    if os.path.isfile(json_infos):
-        try:
-            data = charger_json(json_infos)
-            objectifs_str = data.get("objectifs", "")
-            if objectifs_str:
-                latex_objectifs = generer_objectifs_latex(objectifs_str)
-                lien_objectifs.parent.mkdir(parents=True, exist_ok=True)
-                with open(lien_objectifs, 'w', encoding='utf-8') as f:
-                    f.write(latex_objectifs)
-                print(f"✅ Fichier '{lien_objectifs.name}' généré avec les objectifs.")
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour des objectifs : {e}")
-
-    # --- 6. Mise à jour des liens et ressources ---
-    if os.path.isfile(json_infos):
-        try:
-            data = charger_json(json_infos)
-            liens_str = data.get("liens", "")
-            ressources_str = data.get("ressources", "")
-            if liens_str or ressources_str:
-                latex_lr = generer_liens_ressources_latex(liens_str, ressources_str)
-                lien_liens_ressources.parent.mkdir(parents=True, exist_ok=True)
-                with open(lien_liens_ressources, 'w', encoding='utf-8') as f:
-                    f.write(latex_lr)
-                print(f"✅ Fichier '{lien_liens_ressources.name}' généré avec liens et ressources.")
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour des liens/ressources : {e}")
-
-    # --- 7. Mise à jour du titre dans retour_aller/titre.tex ---
-    if os.path.isfile(json_infos):
-        try:
-            data = charger_json(json_infos)
-            titre_str = data.get("titre", "")
-            if titre_str:
-                ecrire_fichier_cle(dossier, "titre", titre_str)
-                print(f"✅ Fichier 'titre.tex' mis à jour avec le titre.")
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour du titre : {e}")
-
-    print(f"\n✅ Traitement terminé.")
 
 
 if __name__ == "__main__":
