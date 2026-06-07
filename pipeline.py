@@ -32,3 +32,19 @@ if __name__ == "__main__":
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Modèle introuvable : {model_path}")
+
+    print("...")
+    print("Lancement du pipeline de recherche...")
+    resultats_recherche = run_research_pipeline(sections, llm)
+
+    # 3. Génération du document final à partir du plan détaillé
+    plan_detail = resultats_recherche.get('plan_detail', {})
+
+    if plan_detail:
+        print("Début de la génération du plan d'action...")
+        document_md = generer_document_final(plan_detail, sections, llm)
+        with open("etude.md", "w", encoding="utf-8") as f:
+            f.write(document_md)
+        print("📝 Plan d'action generer")
+    else:
+        print("❌ Aucun plan détaillé trouvé, impossible de générer le document.")
