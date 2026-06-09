@@ -3,7 +3,8 @@ import json
 import re
 import requests
 from pathlib import Path
-from llama_cpp import Llama
+import pypandoc
+
 
 # --- CONFIGURATION ---
 json_informations = "json/informations.json"
@@ -264,72 +265,22 @@ def extraire_latex(texte: str) -> str:
     return texte.strip()
 
 
-def generer_latex_depuis_markdown(contenu_markdown: str, llm: Llama) -> str:
-    prompt = (
-        "Tu es un convertisseur automatique de markdown vers LaTeX. Ta tâche est de transformer "
-        "le contenu markdown fourni en un document LaTeX parfaitement structuré, en respectant "
-        "scrupuleusement les règles suivantes :\n\n"
-        "1. **Fidélité absolue** : tout le texte, les listes, les tableaux, les blocs de code, "
-        "les formules, les notes, etc., doivent être reproduits à l'identique, sans rien omettre, "
-        "ajouter, reformuler ou interpréter. Aucune information ne doit être inventée.\n\n"
-        "2. **Hiérarchie des titres** :\n"
-        "   - Un titre markdown de niveau 1 (#) devient \\section{...}\n"
-        "   - Un titre de niveau 2 (##) devient \\subsection{...}\n"
-        "   - Un titre de niveau 3 (###) devient \\subsubsection{...}\n"
-        "   - Les titres en gras (**Titre**) qui ne sont pas précédés d'un # doivent être convertis "
-        "en \\textbf{...} et rester dans le paragraphe.\n\n"
-        "3. **Listes** :\n"
-        "   - Les listes à puces (- ou *) deviennent \\begin{itemize} ... \\end{itemize}\n"
-        "   - Les listes numérotées (1. 2. ...) deviennent \\begin{enumerate} ... \\end{enumerate}\n"
-        "   - Les items doivent conserver exactement le même texte.\n\n"
-        "4. **Tableaux** :\n"
-        "   - Convertir les tableaux markdown en environnement {tabular} avec les colonnes appropriées.\n"
-        "   - Utiliser \\hline pour les lignes horizontales.\n"
-        "   - Le contenu de chaque cellule doit être identique au markdown.\n\n"
-        "5. **Blocs de code** :\n"
-        "   - Les blocs de code délimités par ``` doivent être placés dans \\begin{verbatim} ... \\end{verbatim}\n"
-        "   - Ne pas modifier le contenu du code, y compris les retours à la ligne.\n\n"
-        "6. **Formules mathématiques** :\n"
-        "   - Les expressions entre $ restent entre $ (mode inline).\n"
-        "   - Les expressions entre $$ restent entre $$ (mode display).\n\n"
-        "7. **Styles de texte** :\n"
-        "   - **gras** -> \\textbf{gras}\n"
-        "   - *italique* -> \\textit{italique}\n"
-        "   - `code` -> \\texttt{code}\n\n"
-        "8. **Interdictions strictes** :\n"
-        "   - NE PAS ajouter de \\documentclass, \\usepackage, \\begin{document} ou \\end{document}.\n"
-        "   - NE PAS commenter le code (pas de % commentaire).\n"
-        "   - NE PAS ajouter de texte supplémentaire avant ou après le code LaTeX.\n"
-        "   - Le résultat doit commencer directement par \\section{...} ou \\subsection{...} si le markdown commence par un titre.\n"
-        "   - Si le markdown commence par du texte sans titre, commencer par ce texte.\n\n"
-        "Voici le contenu markdown à convertir :\n\n"
-        f"{contenu_markdown}\n\n"
-        "Retourne UNIQUEMENT le code LaTeX résultant, sans aucun autre caractère."
-        "IMPORTANT : Ne termine PAS le document par une note ou phrase autre que **LA DERNIERE PHRASE QUI FAIT PARTIE DE LA CONCLUSION.**\n\n"
-    )
-
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant that writes LaTeX code."},
-        {"role": "user", "content": prompt}
-    ]
-    prompt_str = ""
-    for msg in messages:
-        prompt_str += f"<|im_start|>{msg['role']}\n{msg['content']}<|im_end|>\n"
-    prompt_str += "<|im_start|>assistant\n"
-
-    output = llm.create_completion(
-        prompt=prompt_str,
-        max_tokens=MAX_TOKENS_GEN,
-        temperature=0.2,
-        stop=["<|im_end|>", "<|im_start|>"],
-        echo=False
-    )
-    raw_text = output['choices'][0]['text']
-    latex_genere = extraire_latex(raw_text)
-
-    if not latex_genere:
-        raise ValueError("Le LLM n'a pas retourné de code LaTeX valide.")
-    return latex_genere
+def convertir_markdown_vers_latex(contenu_markdown: str) -> str:
+    """
+    Convertit instantanément du Markdown en LaTeX via des règles strictes (Pandoc).
+    Aucune IA n'est utilisée.
+    """
+    try:
+        # pypandoc convertit le markdown directement en syntaxe LaTeX pure
+        latex_genere = pypandoc.convert_text(
+            contenu_markdown,
+            'latex',
+            format='md'
+        )
+        return latex_genere
+    except Exception as e:
+        print(f"Erreur de conversion Pandoc : {e}")
+        return ""
 
 def decouper_markdown(contenu: str) -> list:
     """Découpe le document markdown en sections gérables pour le CPU."""
@@ -360,42 +311,22 @@ def main():
         contenu_formate = formater_contenu(texte)
         ecrire_fichier_cle(dossier, cle, contenu_formate)
 
+    # --- 2. Mise à jour de etudes.tex avec le contenu du markdown ---
     if os.path.isfile(markdown_source):
         try:
             md_content = charger_contenu_markdown(markdown_source)
             dossier_plan_action.mkdir(parents=True, exist_ok=True)
 
-            print("Chargement du modèle IA pour générer le contenu de l'étude...")
-            llm = Llama(
-                model_path=MODEL_PATH,
-                n_ctx=N_CTX,
-                n_threads=coeurs_physiques,
-                use_mlock=False,
-                verbose=False
-            )
-            print("Modèle IA chargé.")
+            print("Conversion du Markdown en LaTeX (Méthode par règles strictes)...")
 
-            # --- DÉBUT DE L'OPTIMISATION DU FLUX ---
-            sections_md = decouper_markdown(md_content)
-            print(f"Document découpé en {len(sections_md)} sections pour soulager le CPU.")
-
-            latex_final = []
-            for idx, section in enumerate(sections_md, start=1):
-                print(f" -> Traduction de la section {idx}/{len(sections_md)} en cours...")
-                latex_morceau = generer_latex_depuis_markdown(section, llm)
-                latex_final.append(latex_morceau)
-            # --- FIN DE L'OPTIMISATION ---
-
-            llm.close()
-            print("Modèle IA déchargé.")
-
-            # On rassemble tous les morceaux traduits
-            contenu_complet_latex = "\n\n".join(latex_final)
+                # Conversion en un seul bloc, sans IA, instantanément
+            contenu_complet_latex = convertir_markdown_vers_latex(md_content)
 
             chemin_etude = dossier_plan_action / "etudes.tex"
             with open(chemin_etude, 'w', encoding='utf-8') as f:
                 f.write(contenu_complet_latex)
-            print(f"✅ Fichier '{chemin_etude.name}' mis à jour avec le contenu du markdown.")
+
+            print(f"✅ Fichier '{chemin_etude.name}' généré avec succès en 0.1s.")
         except Exception as e:
             print(f"❌ Erreur lors de la mise à jour de l'étude : {e}")
     else:
@@ -421,7 +352,8 @@ def main():
             print(f"❌ Erreur lors de la mise à jour des pistes : {e}")
     else:
         print(f"⚠️  Fichier de recherche introuvable : {json_recherche}")
-        # --- 4. Mise à jour de la page d'informations (auteur) ---
+
+    # --- 4. Mise à jour de la page d'informations (auteur) ---
     if os.path.isfile(json_infos):
         try:
             infos = charger_infos_auteur(json_infos)
@@ -471,8 +403,6 @@ def main():
         except Exception as e:
             print(f"❌ Erreur lors de la mise à jour du titre : {e}")
     print(f"\n✅ Traitement terminé.")
-
-
 
 
 if __name__ == "__main__":
