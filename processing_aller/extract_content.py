@@ -64,7 +64,7 @@ def extraire_sections_avec_llama(chemin_aller_prosit: str, llm: Llama, max_token
 
     print("Début de l'extraction des informations du prosit aller...")
     response = llm.create_chat_completion(
-        messages=messages,
+        messages=messages, #TODO control warning
         max_tokens=max_tokens,
         temperature=temperature,
         stream=True,
@@ -113,7 +113,7 @@ def extraire_sections_avec_llama(chemin_aller_prosit: str, llm: Llama, max_token
 
                 sections[champ] = contenu
 
-    dossier_sortie = Path(os.path.dirname(__file__), "json")
+    dossier_sortie = Path(os.path.dirname(__file__), "../json")
     dossier_sortie.mkdir(parents=True, exist_ok=True)
     chemin_sortie = dossier_sortie / "resultat_extract.json"
 

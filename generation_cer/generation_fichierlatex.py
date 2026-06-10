@@ -14,19 +14,12 @@ json_recherche = "json/recherche_resultats.json"
 json_infos = "json/informations.json"
 markdown_source = "etude.md"
 
-dossier_plan_action = Path("template/Theme_classique/plan_d'action")
+dossier_plan_action = Path("../template/Theme_classique/plan_d'action")
 lien_definition = dossier_plan_action / "definition_motscles.tex"
 lien_pistes = dossier_plan_action / "pistes_evaluees.tex"
-lien_page_infos = Path("template/Theme_classique/page_informations.tex")
-lien_objectifs = Path("template/Theme_classique/objectifs_apprentissage.tex")
-lien_liens_ressources = Path("template/Theme_classique/references_outils.tex")
-
-coeurs_logiques = os.cpu_count() or 4  # 4 par défaut si la détection échoue
-coeurs_physiques = max(1, coeurs_logiques // 2)
-
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "foundation_model_latex/qwen2.5-coder-3b-instruct-q4_k_m.gguf")
-N_CTX = 16384
-MAX_TOKENS_GEN = N_CTX - 1000
+lien_page_infos = Path("../template/Theme_classique/page_informations.tex")
+lien_objectifs = Path("../template/Theme_classique/objectifs_apprentissage.tex")
+lien_liens_ressources = Path("../template/Theme_classique/references_outils.tex")
 
 key_ignore = {"mot cles"}
 
