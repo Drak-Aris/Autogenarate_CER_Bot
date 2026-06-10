@@ -4,8 +4,8 @@ from pathlib import Path
 #todo nettoyer et corriger
 #TODO Corriger le faite que a la generation la table de matiere ne ressort pas.
 
-TEX_FILE = "template/Theme_classique/main.tex"
-OUTPUT_DIR = "cer_finished"
+TEX_FILE = "../template/Theme_classique/main.tex"
+OUTPUT_DIR = "../cer_finished"
 
 def compiler_latex(fichier_tex: str, dossier_sortie: str):
     fichier_tex = Path(fichier_tex).resolve()

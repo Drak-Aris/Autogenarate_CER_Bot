@@ -1,5 +1,6 @@
 import random
 from llama_cpp import Llama
+import os
 
 def extraire_sections_utiles(data: dict) -> dict:
     cles_requises = ["generalisation"]
@@ -71,3 +72,38 @@ def generer_document_final(plan_detail: dict, sections:dict, llm: Llama) -> dict
 
     print(f"Plan d'action complet généré : {compter_tokens(document_final, llm)} tokens")
     return document_final
+
+model_path = os.path.join(os.path.dirname(__file__), "foundation_model/chocolatine-2-4b-instruct-dpo-v2.1-q4_k_m.gguf")
+
+coeurs_logiques = os.cpu_count() or 4  # 4 par défaut si la détection échoue
+coeurs_physiques = max(1, coeurs_logiques // 2)
+
+try:
+    llm = Llama(
+        model_path=model_path,
+        n_ctx=8192,
+        n_threads=coeurs_physiques,
+        verbose=False
+    )
+    print("Modèle IA chargé avec succès.")
+except Exception as e:
+    print(f"Erreur lors du chargement du modèle : {e}")
+
+if __name__ == '__main__':
+    import json  # Assurez-vous d'importer json si ce n'est pas déjà fait
+
+    # Charger le fichier JSON contenant plan_detail et generalisation
+    with open("../json/recherche_resultats.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    plan_detail = data.get("plan_detail")
+    sections = extraire_sections_utiles(data)
+
+    if plan_detail:
+        print("Début de la génération du plan d'action...")
+        document_md = generer_document_final(plan_detail, sections, llm)
+        with open("etude.md", "w", encoding="utf-8") as f:
+            f.write(document_md)
+        print("📝 Plan d'action généré")
+    else:
+        print("❌ Aucun plan détaillé trouvé, impossible de générer le document.")
