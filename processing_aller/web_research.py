@@ -6,13 +6,11 @@ import time
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
-from langchain_community.utilities import GoogleSerperAPIWrapper
-from llama_cpp import Llama
 
 load_dotenv()
 
-
-def extraire_sections_utiles(data: dict) -> dict:
+#TODO : Pour la recherche effectuer uniquement sur les donnees a rechercher
+def extract_sections(data: dict) -> dict:
     cles_requises = ["mot cles", "pistes de solution", "plan action", "generalisation"]
     return {cle: data[cle] for cle in cles_requises if cle in data}
 
