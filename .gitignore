@@ -1,6 +1,5 @@
 .venv
 test_doc
 .idea
-.gitignore
 .env
 processing_aller/test.txt

@@ -2,7 +2,6 @@ from pathlib import Path
 from docling.document_converter import DocumentConverter
 import unicodedata, re
 
-
 def extract_text(chemin_fichier: Path) -> str:
     converter = DocumentConverter()
     result = converter.convert(chemin_fichier)
