@@ -2,5 +2,5 @@
 test_doc
 .idea
 .gitignore
-!/.env
+.env
 processing_aller/test.txt
